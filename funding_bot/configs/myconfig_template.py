@@ -14,7 +14,11 @@ class AccountConfiguration(Configuration):
         return ""
 
     @classmethod
-    def get_telegram_api(cls) -> Optional[str]:
+    def get_telegram_chat_id(cls) -> Optional[str]:
+        return None
+
+    @classmethod
+    def get_telegram_api_key(cls) -> Optional[str]:
         return None
 
 

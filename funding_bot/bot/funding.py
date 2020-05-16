@@ -96,7 +96,6 @@ class FundingBot(object):
         if data_entry:
             return tabulate.tabulate(data_entry, headers=["Currency", "Lending Rates", "Duration"])
 
-
     def send_telegram_notification(self, msg: str):
         requests.get(f"{self._config.get_telegram_api()}{msg}")
 

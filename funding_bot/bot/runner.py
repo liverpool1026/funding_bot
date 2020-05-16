@@ -19,6 +19,13 @@ MIN_FUNDING_AMOUNT = {
 CURRENCIES = ["fUSD", "fETH"]
 
 
+def get_runtime(start_time: int) -> str:
+    seconds = dt.datetime.now().timestamp() - start_time
+    hours, remainder = divmod(seconds, 3600)
+    minutes, seconds = divmod(remainder, 60)
+    return'{:02}:{:02}:{:02}'.format(int(hours), int(minutes), int(seconds))
+
+
 def runner():
     start_time = dt.datetime.now().timestamp()
     last_report_date = dt.datetime.now().date()
@@ -38,6 +45,8 @@ def runner():
         # Send a daily report
         if dt.datetime.now().date() != last_report_date:
             last_report_date = dt.datetime.now().date()
+            bot.send_telegram_notification(f"Summary Report @ {dt.datetime.now().date()}\n"
+                                           f"Runtime: {get_runtime(start_time)}")
             bot.generate_report(CURRENCIES)
         time.sleep(30)  # RESTful API has connection limits, consider switch to Websocket
 

@@ -85,7 +85,7 @@ def runner(logger: logging.Logger):
 
         if int((dt.datetime.now().timestamp() - start_time) / 3600) != run_hours:
             run_hours = (
-                int((dt.datetime.now().timestamp() - start_time) / 3600) != run_hours
+                int((dt.datetime.now().timestamp() - start_time) / 3600)
             )
             bot.send_telegram_notification(
                 f"Summary Report @ {dt.datetime.now().date()}\n"

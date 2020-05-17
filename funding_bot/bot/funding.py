@@ -152,10 +152,11 @@ class FundingBot(object):
 
         if currency == "fUSD":
             if offer_rate < 0.09:
+                self._logger.debug(f"Current Offer Rate {offer_rate} -> {0.0959}")
                 offer_rate = 0.0959  # TODO requires changing
 
         days = 2
-        if offer_rate * 365 > 32:
+        if offer_rate * 365 > 35:
             days = 30
         # elif offer_rate * 365 > 25:
         #     days = 20

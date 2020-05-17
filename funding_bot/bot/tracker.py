@@ -14,7 +14,9 @@ class Tracker(object):
         self._logger = logger
         self._currency = currency
         self._rate_data: List[RATE_DATA] = []
-        self._current_rate_data: RATE_DATA = RATE_DATA(FRR=0, Bid=0, Ask=0, Last=0, High=0, Low=0)
+        self._current_rate_data: RATE_DATA = RATE_DATA(
+            FRR=0, Bid=0, Ask=0, Last=0, High=0, Low=0
+        )
 
     def get_api(self) -> str:
         return f"https://api-pub.bitfinex.com/v2/tickers?symbols={self._currency}"
@@ -24,7 +26,16 @@ class Tracker(object):
         if response.status_code == 200:
             value = json.loads(response.content.decode())
 
-            self._rate_data.append(RATE_DATA(FRR=value[0][1], Bid=value[0][2], Ask=value[0][5], Last=value[0][10], High=value[0][12], Low=value[0][13]))
+            self._rate_data.append(
+                RATE_DATA(
+                    FRR=value[0][1],
+                    Bid=value[0][2],
+                    Ask=value[0][5],
+                    Last=value[0][10],
+                    High=value[0][12],
+                    Low=value[0][13],
+                )
+            )
 
             if len(self._rate_data) == 15:
                 self.aggregate_rate_data()
@@ -39,7 +50,7 @@ class Tracker(object):
         last = 0
         high = 0
         low = 0
-        
+
         for i in self._rate_data:
             FRR += i.FRR
             bid += i.Bid
@@ -60,7 +71,6 @@ class Tracker(object):
 
         self._rate_data = []
 
-        self._logger.info(f"Current Rate Data: FRR: {self._current_rate_data.FRR} Bid: {self._current_rate_data.Bid} Ask: {self._current_rate_data.Ask} Last: {self._current_rate_data.Last} High: {self._current_rate_data.High} Low: {self._current_rate_data.Low}")
-        
-        
-
+        self._logger.info(
+            f"Current Rate Data: FRR: {self._current_rate_data.FRR} Bid: {self._current_rate_data.Bid} Ask: {self._current_rate_data.Ask} Last: {self._current_rate_data.Last} High: {self._current_rate_data.High} Low: {self._current_rate_data.Low}"
+        )

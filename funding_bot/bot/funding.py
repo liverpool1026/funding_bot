@@ -15,8 +15,21 @@ if TYPE_CHECKING:
     from funding_bot.configs.base import Configuration
     from funding_bot.bot.tracker import RATE_DATA
 
-Header = TypedDict("Header", {"bfx-nonce": str, "bfx-apikey": str, "bfx-signature": str, "context-type": str})
-FundingOrderData = TypedDict("FundingOrderData", {"type": str, "symbol": str, "amount": str, "rate": str, "period": int, "flags": int})
+Header = TypedDict(
+    "Header",
+    {"bfx-nonce": str, "bfx-apikey": str, "bfx-signature": str, "context-type": str},
+)
+FundingOrderData = TypedDict(
+    "FundingOrderData",
+    {
+        "type": str,
+        "symbol": str,
+        "amount": str,
+        "rate": str,
+        "period": int,
+        "flags": int,
+    },
+)
 LendingSummary = namedtuple("LendingSummary", ("Yield", "Duration"))
 
 
@@ -33,10 +46,16 @@ class FundingBot(object):
     def generate_nonce(cls) -> str:
         return str(int(dt.datetime.now().timestamp() * 1000000))
 
-    def generate_signature(self, end_point: str, nonce: str, body: Dict[str, Any]) -> str:
+    def generate_signature(
+        self, end_point: str, nonce: str, body: Dict[str, Any]
+    ) -> str:
         signature = f"/api/{end_point}{nonce}{json.dumps(body)}"
 
-        return hmac.new(key=self._config.get_api_secret_key().encode('utf8'), msg=signature.encode('utf8'), digestmod=hashlib.sha384).hexdigest()
+        return hmac.new(
+            key=self._config.get_api_secret_key().encode("utf8"),
+            msg=signature.encode("utf8"),
+            digestmod=hashlib.sha384,
+        ).hexdigest()
 
     def generate_headers(self, end_point: str, body: Dict[str, Any]) -> Header:
         nonce = self.generate_nonce()
@@ -44,14 +63,18 @@ class FundingBot(object):
             "bfx-nonce": nonce,
             "bfx-apikey": self._config.get_api_key(),
             "bfx-signature": self.generate_signature(end_point, nonce, body),
-            "content-type": "application/json"
+            "content-type": "application/json",
         }
 
     def send_api_request(self, end_point: str, header: Header, body: Dict[str, Any]):
-        response = requests.post(f"{self.get_api_url()}{end_point}", headers=header, data=json.dumps(body))
+        response = requests.post(
+            f"{self.get_api_url()}{end_point}", headers=header, data=json.dumps(body)
+        )
 
         if response.status_code != 200:
-            self._logger.error(f"API Request to {self.get_api_url()}{end_point} failed with {response.status_code}\n")
+            self._logger.error(
+                f"API Request to {self.get_api_url()}{end_point} failed with {response.status_code}\n"
+            )
         else:
             return json.loads(response.content.decode())
 
@@ -96,7 +119,9 @@ class FundingBot(object):
                 data_entry.append([currency, rate, duration])
 
         if data_entry:
-            return tabulate.tabulate(data_entry, headers=["Currency", "Lending Rates", "Duration"])
+            return tabulate.tabulate(
+                data_entry, headers=["Currency", "Lending Rates", "Duration"]
+            )
 
     def send_telegram_notification(self, msg: str):
         requests.get(f"{self._config.get_telegram_api()}{msg}")
@@ -117,7 +142,9 @@ class FundingBot(object):
         self._logger.info(funding_summary)
         self.send_telegram_notification(funding_summary)
 
-    def submit_funding_offer(self, currency: str, rate_data: "RATE_DATA", amount: Union[int, float]):
+    def submit_funding_offer(
+        self, currency: str, rate_data: "RATE_DATA", amount: Union[int, float]
+    ):
         end_point = "v2/auth/w/funding/offer/submit"
         offer_rate = max(rate_data.FRR, rate_data.Last)
         # if (rate_data.High - offer_rate) * 365 > 5:
@@ -148,8 +175,12 @@ class FundingBot(object):
         header: Header = self.generate_headers(end_point, body)
 
         self.send_api_request(end_point, header, body)
-        self._logger.info(f"Funding Order for {amount} {currency} submitted @ {offer_rate} for {days} days")
-        self.send_telegram_notification(f"Funding Order for {amount} {currency} submitted @ {offer_rate} for {days} days")
+        self._logger.info(
+            f"Funding Order for {amount} {currency} submitted @ {offer_rate} for {days} days"
+        )
+        self.send_telegram_notification(
+            f"Funding Order for {amount} {currency} submitted @ {offer_rate} for {days} days"
+        )
 
 
 __all__ = [

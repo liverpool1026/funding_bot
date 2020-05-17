@@ -98,7 +98,7 @@ def runner(logger: logging.Logger):
             bot.generate_report(CURRENCIES)
 
         time.sleep(
-            30
+            5
         )  # RESTful API has connection limits, consider switch to Websocket
 
 

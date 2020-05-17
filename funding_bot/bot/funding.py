@@ -8,13 +8,15 @@ import datetime as dt
 
 from collections import namedtuple
 
-from typing import List, Dict, Any, Optional, TYPE_CHECKING
+from typing import List, Dict, Any, Union, Optional, TYPE_CHECKING
 from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
     from funding_bot.configs.base import Configuration
+    from funding_bot.bot.tracker import RATE_DATA
 
 Header = TypedDict("Header", {"bfx-nonce": str, "bfx-apikey": str, "bfx-signature": str, "context-type": str})
+FundingOrderData = TypedDict("FundingOrderData", {"type": str, "symbol": str, "amount": str, "rate": str, "period": int, "flags": int})
 LendingSummary = namedtuple("LendingSummary", ("Yield", "Duration"))
 
 
@@ -106,14 +108,48 @@ class FundingBot(object):
         while wallet_data is None:
             wallet_data = self.grab_current_wallet_status()
 
+        self._logger.info(wallet_data)
         self.send_telegram_notification(wallet_data)
 
         while funding_summary is None:
             funding_summary = self.get_funding_summary(currencies)
 
+        self._logger.info(funding_summary)
         self.send_telegram_notification(funding_summary)
 
+    def submit_funding_offer(self, currency: str, rate_data: "RATE_DATA", amount: Union[int, float]):
+        end_point = "v2/auth/w/funding/offer/submit"
+        offer_rate = max(rate_data.FRR, rate_data.Last)
+        # if (rate_data.High - offer_rate) * 365 > 5:
+        #     offer_rate = (rate_data.High - 1 / 365)
 
+        if currency == "fUSD":
+            if offer_rate < 0.09:
+                offer_rate = 0.0959  # TODO requires changing
+
+        days = 2
+        if offer_rate * 365 > 32:
+            days = 30
+        # elif offer_rate * 365 > 25:
+        #     days = 20
+        # elif offer_rate * 365 > 20:
+        #     days = 10
+
+        offer_rate = offer_rate / 100
+        body: FundingOrderData = {
+            "type": "LIMIT",
+            "symbol": currency,
+            "amount": str(abs(amount)),
+            "rate": str(offer_rate),
+            "period": days,
+            "flags": 0,
+        }
+
+        header: Header = self.generate_headers(end_point, body)
+
+        self.send_api_request(end_point, header, body)
+        self._logger.info(f"Funding Order for {amount} {currency} submitted @ {offer_rate} for {days} days")
+        self.send_telegram_notification(f"Funding Order for {amount} {currency} submitted @ {offer_rate} for {days} days")
 
 
 __all__ = [

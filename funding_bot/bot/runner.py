@@ -39,6 +39,13 @@ def runner(logger: logging.Logger):
     for currency in CURRENCIES:
         trackers[currency] = Tracker(currency=currency, logger=logger)
 
+    for i in range(20):
+        # Need initial value
+        for currency in CURRENCIES:
+            # Rate Tracker Update Rate
+            tracker = trackers[currency]
+            tracker.update_rates()
+
     while True:
         for currency in CURRENCIES:
             # Rate Tracker Update Rate

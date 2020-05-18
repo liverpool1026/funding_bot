@@ -152,8 +152,12 @@ class FundingBot(object):
 
         if currency == "fUSD":
             if offer_rate < 0.09:
-                self._logger.info(f"Current Offer Rate {offer_rate} -> {0.01}")
-                offer_rate = 0.01  # TODO requires changing
+                self._logger.info(f"Current Offer Rate {offer_rate} -> {0.098}")
+                offer_rate = 0.098  # TODO requires changing
+
+        if offer_rate == 0:
+            self._logger.warning("Cannot submit order with 0 offer rate, abort")
+            return
 
         days = 2
         if offer_rate * 365 > 36:

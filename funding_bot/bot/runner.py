@@ -84,9 +84,7 @@ def runner(logger: logging.Logger):
             bot.generate_report(CURRENCIES)
 
         if int((dt.datetime.now().timestamp() - start_time) / 3600) != run_hours:
-            run_hours = (
-                int((dt.datetime.now().timestamp() - start_time) / 3600)
-            )
+            run_hours = int((dt.datetime.now().timestamp() - start_time) / 3600)
             bot.send_telegram_notification(
                 f"Summary Report @ {dt.datetime.now().date()}\n"
                 f"Runtime: {get_runtime(start_time)}"
@@ -97,9 +95,7 @@ def runner(logger: logging.Logger):
             )
             bot.generate_report(CURRENCIES)
 
-        time.sleep(
-            5
-        )  # RESTful API has connection limits, consider switch to Websocket
+        time.sleep(5)  # RESTful API has connection limits, consider switch to Websocket
 
 
 __all__ = [

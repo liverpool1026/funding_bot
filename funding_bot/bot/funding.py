@@ -152,11 +152,11 @@ class FundingBot(object):
 
         if currency == "fUSD":
             if offer_rate < 0.09:
-                self._logger.debug(f"Current Offer Rate {offer_rate} -> {0.0959}")
-                offer_rate = 0.0959  # TODO requires changing
+                self._logger.info(f"Current Offer Rate {offer_rate} -> {0.01}")
+                offer_rate = 0.01  # TODO requires changing
 
         days = 2
-        if offer_rate * 365 > 35:
+        if offer_rate * 365 > 36:
             days = 30
         # elif offer_rate * 365 > 25:
         #     days = 20
@@ -164,10 +164,13 @@ class FundingBot(object):
         #     days = 10
 
         offer_rate = offer_rate / 100
+        amount = ("%.6f" % abs(amount))[
+            :-1
+        ]  # Truncate at 5th decimal places to avoid rounding error
         body: FundingOrderData = {
             "type": "LIMIT",
             "symbol": currency,
-            "amount": str(abs(amount)),
+            "amount": amount,
             "rate": str(offer_rate),
             "period": days,
             "flags": 0,

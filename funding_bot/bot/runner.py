@@ -30,16 +30,17 @@ def get_runtime(start_time: float) -> str:
     return str(dt.timedelta(hours=hours, minutes=minutes, seconds=seconds))
 
 
-def get_initial_start_data(currency: str, table_name: str, logger: logging.Logger) -> FUNDING_DATA:
+def get_initial_start_data(
+    currency: str, table_name: str, logger: logging.Logger
+) -> FUNDING_DATA:
     aws_context = boto3.resource("dynamodb", region_name="ap-southeast-2")
     try:
-        initial_balance_data = aws_context.Table(table_name).get_item(Key={"Key": currency})
+        initial_balance_data = aws_context.Table(table_name).get_item(
+            Key={"Key": currency}
+        )
     except ClientError as e:
         logger.debug(f"Failed to fetch balance for {currency}")
-        return FUNDING_DATA(
-            Date=dt.datetime.now().date(),
-            InitialBalance=1000,
-        )
+        return FUNDING_DATA(Date=dt.datetime.now().date(), InitialBalance=1000,)
     else:
         return FUNDING_DATA(
             Date=dt.datetime.strptime(initial_balance_data["Item"]["Date"], "%m-%d-%Y"),
@@ -58,7 +59,9 @@ def runner(logger: logging.Logger):
 
     for currency in CURRENCIES:
         trackers[currency] = Tracker(currency=currency, logger=logger)
-        initial_data[currency] = get_initial_start_data(currency, AccountConfiguration.get_dynamodb_table_name(), logger=logger)
+        initial_data[currency] = get_initial_start_data(
+            currency, AccountConfiguration.get_dynamodb_table_name(), logger=logger
+        )
         if initial_data[currency].InitialBalance == 1000:
             # TODO update using wallet balance
             pass
@@ -103,8 +106,7 @@ def runner(logger: logging.Logger):
 
         if int((dt.datetime.now().timestamp() - start_time) / 3600) != run_hours:
             run_hours = int((dt.datetime.now().timestamp() - start_time) / 3600)
-            message: str = f"Summary Report @ {dt.datetime.now().date()}\n" \
-                           f"Runtime: {get_runtime(start_time)}\n"
+            message: str = f"Summary Report @ {dt.datetime.now().date()}\n" f"Runtime: {get_runtime(start_time)}\n"
 
             for currency in CURRENCIES:
                 current_balance: float = bot.get_currency_balance(currency)
@@ -112,7 +114,12 @@ def runner(logger: logging.Logger):
                 gain: float = 0
                 if current_balance != -1:
                     gain = current_balance - initial_data[currency].InitialBalance
-                    roi = 365 * gain / (dt.datetime.now() - initial_data[currency].Date).days / initial_data[currency].InitialBalance
+                    roi = (
+                        365
+                        * gain
+                        / (dt.datetime.now() - initial_data[currency].Date).days
+                        / initial_data[currency].InitialBalance
+                    )
 
                 message += f"\n{currency[1:]}: \n"
                 message += f"Initial Balance: {initial_data[currency].InitialBalance}\n"

@@ -42,7 +42,7 @@ ActiveFundingData = TypedDict(
         "Rate": float,
         "Period": int,
         "PositionPair": str,
-    }
+    },
 )
 
 LendingSummary = namedtuple("LendingSummary", ("Yield", "Duration"))
@@ -175,9 +175,21 @@ class FundingBot(object):
 
         order_data: List[Any] = []
         for order in orders:
-            order_data.append([order["Currency"], order["ID"], order["Amount"], f"{round(order['Rate'] * 100, 2)}%", order["Period"], order["PositionPair"]])
+            order_data.append(
+                [
+                    order["Currency"],
+                    order["ID"],
+                    order["Amount"],
+                    f"{round(order['Rate'] * 100, 2)}%",
+                    order["Period"],
+                    order["PositionPair"],
+                ]
+            )
 
-        order_data_msg = tabulate.tabulate(order_data, headers=["Currency", "ID", "Amount", "Rate", "Period", "PositionPair"])
+        order_data_msg = tabulate.tabulate(
+            order_data,
+            headers=["Currency", "ID", "Amount", "Rate", "Period", "PositionPair"],
+        )
 
         self._logger.info(order_data_msg)
         self.send_telegram_notification(order_data_msg)

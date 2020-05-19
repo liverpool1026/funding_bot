@@ -19,6 +19,10 @@ class Configuration(object):
         return None
 
     @classmethod
+    def get_dynamodb_table_name(cls) -> Optional[str]:
+        return None
+
+    @classmethod
     def get_telegram_api(cls) -> Optional[str]:
         chat_id = cls.get_telegram_chat_id()
         api_key = cls.get_telegram_api_key()

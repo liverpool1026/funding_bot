@@ -19,6 +19,7 @@ Header = TypedDict(
     "Header",
     {"bfx-nonce": str, "bfx-apikey": str, "bfx-signature": str, "context-type": str},
 )
+
 FundingOrderData = TypedDict(
     "FundingOrderData",
     {
@@ -30,6 +31,20 @@ FundingOrderData = TypedDict(
         "flags": int,
     },
 )
+
+ActiveFundingData = TypedDict(
+    "ActiveFundingData",
+    {
+        "ID": str,
+        "Currency": str,
+        "Amount": float,
+        "Status": str,
+        "Rate": float,
+        "Period": int,
+        "PositionPair": str,
+    }
+)
+
 LendingSummary = namedtuple("LendingSummary", ("Yield", "Duration"))
 
 
@@ -89,6 +104,18 @@ class FundingBot(object):
             data = [row[:3] for row in data]
             return tabulate.tabulate(data, headers=["Type", "Currency", "Amount"])
 
+    def get_currency_balance(self, currency: str) -> float:
+        end_point = "v2/auth/r/wallets"
+        body: Dict[str, Any] = {}
+        header: Header = self.generate_headers(end_point, body)
+
+        data = self.send_api_request(end_point, header, body)
+
+        for row in data:
+            if row[0] == "funding" and row[1] == currency[1:]:
+                return float(row[2])
+        return -1
+
     def grab_available_funding(self, currency: str = "fUSD") -> float:
         end_point = "v2/auth/calc/order/avail"
         body: Dict[str, Any] = {
@@ -142,9 +169,22 @@ class FundingBot(object):
         self._logger.info(funding_summary)
         self.send_telegram_notification(funding_summary)
 
+        orders: List[ActiveFundingData] = []
+        for currency in currencies:
+            orders = orders + self.get_active_funding_data(currency)
+
+        order_data: List[Any] = []
+        for order in orders:
+            order_data.append([order["Currency"], order["ID"], order["Amount"], f"{round(order['Rate'] * 100, 2)}%", order["Period"], order["PositionPair"]])
+
+        order_data_msg = tabulate.tabulate(order_data, headers=["Currency", "ID", "Amount", "Rate", "Period", "PositionPair"])
+
+        self._logger.info(order_data_msg)
+        self.send_telegram_notification(order_data_msg)
+
     def submit_funding_offer(
         self, currency: str, rate_data: "RATE_DATA", amount: Union[int, float]
-    ):
+    ) -> int:
         end_point = "v2/auth/w/funding/offer/submit"
         offer_rate = max(rate_data.FRR, rate_data.Last)
         # if (rate_data.High - offer_rate) * 365 > 5:
@@ -152,7 +192,7 @@ class FundingBot(object):
 
         if currency == "fUSD":
             if offer_rate < 0.0009:
-                self._logger.info(f"Current Offer Rate {offer_rate} -> {0.00098}")
+                self._logger.info(f"Current Offer Rate {offer_rate} -> 0.00098")
                 offer_rate = 0.00098  # TODO requires changing
 
         if offer_rate == 0:
@@ -181,13 +221,43 @@ class FundingBot(object):
 
         header: Header = self.generate_headers(end_point, body)
 
-        self.send_api_request(end_point, header, body)
+        data = self.send_api_request(end_point, header, body)
+
         self._logger.info(
             f"Funding Order for {amount} {currency} submitted @ {offer_rate} for {days} days"
         )
         self.send_telegram_notification(
             f"Funding Order for {amount} {currency} submitted @ {offer_rate} for {days} days"
         )
+
+        return data[0]  # Returns Offer ID
+
+    def get_active_funding_data(self, currency: str) -> List[ActiveFundingData]:
+        end_point = f"v2/auth/r/funding/credits/{currency}"
+
+        body: Dict[str, Any] = {}
+
+        header: Header = self.generate_headers(end_point, body)
+
+        data = self.send_api_request(end_point, header, body)
+
+        order_data: List[ActiveFundingData] = []
+
+        if data:
+            for order in data:
+                order_data.append(
+                    ActiveFundingData(
+                        ID=order[0],
+                        Currency=order[1],
+                        Amount=order[5],
+                        Status=order[7],
+                        Rate=order[11],
+                        Period=order[12],
+                        PositionPair=order[-1],
+                    )
+                )
+
+        return order_data
 
 
 __all__ = [

@@ -101,7 +101,7 @@ def runner(logger: logging.Logger):
 
             # TODO Check offer taken
 
-        if int((dt.datetime.now().timestamp() - start_time) / 3600) != run_hours or True:
+        if int((dt.datetime.now().timestamp() - start_time) / 3600) != run_hours:
             run_hours = int((dt.datetime.now().timestamp() - start_time) / 3600)
             message: str = f"Summary Report @ {dt.datetime.now().date()}\n" \
                            f"Runtime: {get_runtime(start_time)}\n"

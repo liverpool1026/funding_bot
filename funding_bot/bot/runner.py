@@ -131,7 +131,7 @@ def runner(logger: logging.Logger):
             bot.send_telegram_notification(message)
             logger.info(message)
 
-        bot.generate_report(CURRENCIES)
+            bot.generate_report(CURRENCIES)
 
         time.sleep(5)  # RESTful API has connection limits, consider switch to Websocket
 

@@ -180,7 +180,7 @@ class FundingBot(object):
                     order["Currency"],
                     order["ID"],
                     order["Amount"],
-                    f"{round(order['Rate'] * 100, 2)}%",
+                    f"{round(order['Rate'] * 10000, 4)}%",
                     order["Period"],
                     order["PositionPair"],
                 ]

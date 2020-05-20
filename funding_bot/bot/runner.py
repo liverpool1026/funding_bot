@@ -110,11 +110,11 @@ def runner(logger: logging.Logger):
             # TODO Check offer taken
             if submitted_order[currency]:
                 for active_order in bot.get_active_funding_data(currency):
-                    if active_order.ID in submitted_order[currency]:
-                        message = f"Order: {active_order.ID} Amount: {active_order.Amount} Rate: {active_order.Rate} executed"
+                    if active_order["ID"] in submitted_order[currency]:
+                        message = f"Order: {active_order['ID']} Amount: {active_order['Amount']} Rate: {active_order['Rate']} executed"
                         bot.send_telegram_notification(message)
                         logger.info(message)
-                        submitted_order[currency].remove(active_order.ID)
+                        submitted_order[currency].remove(active_order["ID"])
 
         if int((dt.datetime.now().timestamp() - start_time) / 3600) != run_hours:
             run_hours = int((dt.datetime.now().timestamp() - start_time) / 3600)

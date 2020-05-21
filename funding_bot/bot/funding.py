@@ -249,12 +249,8 @@ class FundingBot(object):
         data = self.send_api_request(end_point, header, body)
 
         if data:
-            self._logger.info(
-                f"Order ID: {data[4][0]} {data[7]}"
-            )
-            self.send_telegram_notification(
-                f"Order ID: {data[4][0]} {data[7]}"
-            )
+            self._logger.info(f"Order ID: {data[4][0]} {data[7]}")
+            self.send_telegram_notification(f"Order ID: {data[4][0]} {data[7]}")
 
             return data[4][0]  # Returns Offer ID
 
@@ -285,7 +281,9 @@ class FundingBot(object):
 
         return order_data
 
-    def get_active_funding_offer_data(self, currency: str) -> List[ActiveFundingOfferData]:
+    def get_active_funding_offer_data(
+        self, currency: str
+    ) -> List[ActiveFundingOfferData]:
         end_point = f"v2/auth/r/funding/offers/{currency}"
 
         body: Dict[str, Any] = {}
@@ -314,9 +312,7 @@ class FundingBot(object):
     def cancel_funding_offer(self, id_: str) -> bool:
         end_point = f"v2/auth/w/funding/offer/cancel"
 
-        body: Dict[str, Any] = {
-            "id": int(id_)
-        }
+        body: Dict[str, Any] = {"id": int(id_)}
 
         header: Header = self.generate_headers(end_point, body)
 
@@ -328,8 +324,12 @@ class FundingBot(object):
                 self._logger.warning(f"Order id: {id_} cancel successfully")
                 return True
             else:
-                self.send_telegram_notification(f"Unexpected Response: {data[6]} for order id: {id_}")
-                self._logger.warning(f"Unexpected Response: {data[6]} for order id: {id_}")
+                self.send_telegram_notification(
+                    f"Unexpected Response: {data[6]} for order id: {id_}"
+                )
+                self._logger.warning(
+                    f"Unexpected Response: {data[6]} for order id: {id_}"
+                )
 
         return False
 

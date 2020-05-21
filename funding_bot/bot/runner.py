@@ -105,12 +105,16 @@ def runner(logger: logging.Logger):
                         submitted_orders[currency][str(order)] = dt.datetime.now()
                         current_available_funding[currency] = 0
                     else:
-                        bot.send_telegram_notification(f"Failed to submit order for {current_available_funding[currency]}")
+                        bot.send_telegram_notification(
+                            f"Failed to submit order for {current_available_funding[currency]}"
+                        )
             last_available_funding[currency] = current_available_funding[currency]
 
             order_successfully_executed = []
             if submitted_orders[currency]:
-                active_order_id = [order["ID"] for order in bot.get_active_funding_offer_data(currency)]
+                active_order_id = [
+                    order["ID"] for order in bot.get_active_funding_offer_data(currency)
+                ]
                 for order in submitted_orders[currency]:
                     if int(order) not in active_order_id:
                         message = f"Order: {order} executed"
@@ -122,7 +126,9 @@ def runner(logger: logging.Logger):
                 del submitted_orders[currency][order]
 
             order_successfully_deleted = []
-            for submitted_order_id, submitted_time in submitted_orders[currency].items():
+            for submitted_order_id, submitted_time in submitted_orders[
+                currency
+            ].items():
                 if dt.datetime.now() - submitted_time > dt.timedelta(hours=1):
                     message = f"Order: {submitted_order_id} yet to be executed"
                     bot.send_telegram_notification(message)

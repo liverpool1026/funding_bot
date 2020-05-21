@@ -11,7 +11,7 @@ from funding_bot.configs.myconfig import AccountConfiguration
 from funding_bot.bot.funding import FundingBot
 from funding_bot.bot.tracker import Tracker
 
-from typing import Dict, List
+from typing import Dict
 
 FUNDING_DATA = namedtuple("FUNDING_DATA", ["Date", "InitialBalance"])
 
@@ -56,7 +56,7 @@ def runner(logger: logging.Logger):
     current_available_funding = defaultdict(float)
     trackers: Dict[str, Tracker] = dict()
     initial_data: Dict[str, FUNDING_DATA] = dict()
-    submitted_order: Dict[str, List[str]] = defaultdict(list)
+    submitted_orders: Dict[str, Dict[str, dt.datetime]] = defaultdict(dict)
 
     for currency in CURRENCIES:
         trackers[currency] = Tracker(currency=currency, logger=logger)
@@ -95,26 +95,39 @@ def runner(logger: logging.Logger):
                     logger.info(
                         f"{currency} Available Funding: {current_available_funding[currency]}"
                     )
-                    submitted_order[currency].append(
-                        str(
-                            bot.submit_funding_offer(
-                                currency,
-                                tracker.get_latest_rate_data(),
-                                current_available_funding[currency],
-                            )
-                        )
+                    order = bot.submit_funding_offer(
+                        currency,
+                        tracker.get_latest_rate_data(),
+                        current_available_funding[currency],
                     )
-                    current_available_funding[currency] = 0
+
+                    if order:
+                        submitted_orders[currency][str(order)] = dt.datetime.now()
+                        current_available_funding[currency] = 0
+                    else:
+                        bot.send_telegram_notification(f"Failed to submit order for {current_available_funding[currency]}")
             last_available_funding[currency] = current_available_funding[currency]
 
-            # TODO Check offer taken
-            if submitted_order[currency]:
+            if submitted_orders[currency]:
                 for active_order in bot.get_active_funding_data(currency):
-                    if active_order["ID"] in submitted_order[currency]:
+                    if active_order["ID"] in submitted_orders[currency].keys():
                         message = f"Order: {active_order['ID']} Amount: {active_order['Amount']} Rate: {active_order['Rate']} executed"
                         bot.send_telegram_notification(message)
                         logger.info(message)
-                        submitted_order[currency].remove(active_order["ID"])
+                        del submitted_orders[currency][active_order["ID"]]
+
+            order_successfully_deleted = []
+            for submitted_order_id, submitted_time in submitted_orders[currency].items():
+                if dt.datetime.now() - submitted_time > dt.timedelta(hours=1):
+                    message = f"Order: {submitted_order_id} yet to be executed"
+                    bot.send_telegram_notification(message)
+                    logger.info(message)
+
+                    if bot.cancel_funding_offer(submitted_order_id):
+                        order_successfully_deleted.append(submitted_order_id)
+
+            for order_id in order_successfully_deleted:
+                del submitted_orders[currency][order_id]
 
         if int((dt.datetime.now().timestamp() - start_time) / 3600) != run_hours:
             run_hours = int((dt.datetime.now().timestamp() - start_time) / 3600)

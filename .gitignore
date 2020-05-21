@@ -132,3 +132,5 @@ dmypy.json
 *.idea/*
 
 funding_bot/configs/myconfig.py
+*log*
+*error*

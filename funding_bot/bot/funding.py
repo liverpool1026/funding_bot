@@ -45,6 +45,19 @@ ActiveFundingData = TypedDict(
     },
 )
 
+
+ActiveFundingOfferData = TypedDict(
+    "ActiveFundingOfferData",
+    {
+        "ID": str,
+        "Currency": str,
+        "Amount": float,
+        "Status": str,
+        "Rate": float,
+        "Period": int,
+    },
+)
+
 LendingSummary = namedtuple("LendingSummary", ("Yield", "Duration"))
 
 
@@ -267,6 +280,32 @@ class FundingBot(object):
                         Rate=order[11],
                         Period=order[12],
                         PositionPair=order[-1],
+                    )
+                )
+
+        return order_data
+
+    def get_active_funding_offer_data(self, currency: str) -> List[ActiveFundingOfferData]:
+        end_point = f"v2/auth/r/funding/offers/{currency}"
+
+        body: Dict[str, Any] = {}
+
+        header: Header = self.generate_headers(end_point, body)
+
+        data = self.send_api_request(end_point, header, body)
+
+        order_data: List[ActiveFundingOfferData] = []
+
+        if data:
+            for order in data:
+                order_data.append(
+                    ActiveFundingOfferData(
+                        ID=order[0],
+                        Currency=order[1],
+                        Amount=order[5],
+                        Status=order[10],
+                        Rate=order[14],
+                        Period=order[15],
                     )
                 )
 

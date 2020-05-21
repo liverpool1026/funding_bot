@@ -108,13 +108,18 @@ def runner(logger: logging.Logger):
                         bot.send_telegram_notification(f"Failed to submit order for {current_available_funding[currency]}")
             last_available_funding[currency] = current_available_funding[currency]
 
+            order_successfully_executed = []
             if submitted_orders[currency]:
-                for active_order in bot.get_active_funding_data(currency):
-                    if active_order["ID"] in submitted_orders[currency].keys():
-                        message = f"Order: {active_order['ID']} Amount: {active_order['Amount']} Rate: {active_order['Rate']} executed"
+                active_order_id = [order["ID"] for order in bot.get_active_funding_offer_data(currency)]
+                for order in submitted_orders[currency]:
+                    if int(order) not in active_order_id:
+                        message = f"Order: {order} executed"
                         bot.send_telegram_notification(message)
                         logger.info(message)
-                        del submitted_orders[currency][active_order["ID"]]
+                        order_successfully_executed.append(order)
+
+            for order in order_successfully_executed:
+                del submitted_orders[currency][order]
 
             order_successfully_deleted = []
             for submitted_order_id, submitted_time in submitted_orders[currency].items():

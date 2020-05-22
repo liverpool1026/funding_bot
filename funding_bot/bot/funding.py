@@ -12,13 +12,19 @@ from typing import List, Dict, Any, Union, Optional, TYPE_CHECKING
 from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
-    from funding_bot.configs.base import Configuration
     from funding_bot.bot.tracker import RATE_DATA
 
 Header = TypedDict(
     "Header",
     {"bfx-nonce": str, "bfx-apikey": str, "bfx-signature": str, "context-type": str},
 )
+
+
+class Credentials(TypedDict):
+    api_key: str
+    api_secret_key: str
+    telegram_api: str
+
 
 FundingOrderData = TypedDict(
     "FundingOrderData",
@@ -62,88 +68,84 @@ LendingSummary = namedtuple("LendingSummary", ("Yield", "Duration"))
 
 
 class FundingBot(object):
-    def __init__(self, configuration: "Configuration", logger: logging.Logger):
-        self._config = configuration
-        self._logger = logger
-
     @classmethod
     def get_api_url(cls) -> str:
         return "https://api.bitfinex.com/"
-
-    def get_minimum_daily_lending_rate(self) -> float:
-        return round(self._config.get_minimum_lending_rate() / 36500, 7)
-
-    def get_maximum_lending_amount(self) -> float:
-        return self._config.get_maximum_lending_amount()
 
     @classmethod
     def generate_nonce(cls) -> str:
         return str(int(dt.datetime.now().timestamp() * 1000000))
 
+    @classmethod
     def generate_signature(
-        self, end_point: str, nonce: str, body: Dict[str, Any]
+        cls, credentials: Credentials, end_point: str, nonce: str, body: Dict[str, Any]
     ) -> str:
         signature = f"/api/{end_point}{nonce}{json.dumps(body)}"
 
         return hmac.new(
-            key=self._config.get_api_secret_key().encode("utf8"),
+            key=credentials["api_secret_key"].encode("utf8"),
             msg=signature.encode("utf8"),
             digestmod=hashlib.sha384,
         ).hexdigest()
 
-    def generate_headers(self, end_point: str, body: Dict[str, Any]) -> Header:
-        nonce = self.generate_nonce()
+    @classmethod
+    def generate_headers(cls, credentials: Credentials, end_point: str, body: Dict[str, Any]) -> Header:
+        nonce = cls.generate_nonce()
         return {
             "bfx-nonce": nonce,
-            "bfx-apikey": self._config.get_api_key(),
-            "bfx-signature": self.generate_signature(end_point, nonce, body),
+            "bfx-apikey": credentials.api_key,
+            "bfx-signature": cls.generate_signature(credentials, end_point, nonce, body),
             "content-type": "application/json",
         }
 
-    def send_api_request(self, end_point: str, header: Header, body: Dict[str, Any]):
+    @classmethod
+    def send_api_request(cls, end_point: str, header: Header, body: Dict[str, Any], logger: logging.Logger):
         response = requests.post(
-            f"{self.get_api_url()}{end_point}", headers=header, data=json.dumps(body)
+            f"{cls.get_api_url()}{end_point}", headers=header, data=json.dumps(body)
         )
 
         if response.status_code != 200:
-            self._logger.error(
-                f"API Request to {self.get_api_url()}{end_point} failed with {response.status_code}\n"
+            logger.error(
+                f"API Request to {cls.get_api_url()}{end_point} failed with {response.status_code}\n"
             )
         else:
             return json.loads(response.content.decode())
 
-    def grab_current_wallet_status(self) -> Optional[str]:
+    @classmethod
+    def grab_current_wallet_status(cls, credentials: Credentials, logger: logging.Logger) -> Optional[str]:
         end_point = "v2/auth/r/wallets"
         body: Dict[str, Any] = {}
-        header: Header = self.generate_headers(end_point, body)
+        header: Header = cls.generate_headers(credentials, end_point, body)
 
-        data = self.send_api_request(end_point, header, body)
+        data = cls.send_api_request(end_point, header, body, logger)
 
         if data:
             data = [row[:3] for row in data]
             return tabulate.tabulate(data, headers=["Type", "Currency", "Amount"])
 
-    def get_currency_balance(self, currency: str) -> float:
+    @classmethod
+    def get_currency_balance(cls, credentials: Credentials, currency: str, logger: logging.Logger) -> float:
         end_point = "v2/auth/r/wallets"
         body: Dict[str, Any] = {}
-        header: Header = self.generate_headers(end_point, body)
+        header: Header = cls.generate_headers(credentials, end_point, body)
 
-        data = self.send_api_request(end_point, header, body)
+        data = cls.send_api_request(end_point, header, body, logger)
 
         for row in data:
             if row[0] == "funding" and row[1] == currency[1:]:
                 return float(row[2])
         return -1
 
-    def grab_available_funding(self, currency: str = "fUSD") -> float:
+    @classmethod
+    def grab_available_funding(cls, credentials: Credentials, currency: str, logger: logging.Logger) -> float:
         end_point = "v2/auth/calc/order/avail"
         body: Dict[str, Any] = {
             "symbol": currency,
             "type": "FUNDING",
         }
-        header: Header = self.generate_headers(end_point, body)
+        header: Header = cls.generate_headers(credentials, end_point, body)
 
-        data = self.send_api_request(end_point, header, body)
+        data = cls.send_api_request(end_point, header, body, logger)
 
         if data:
             # Somehow the return value is negative
@@ -151,13 +153,14 @@ class FundingBot(object):
 
         return -1.0
 
-    def get_funding_summary(self, currencies: List[str]) -> str:
+    @classmethod
+    def get_funding_summary(cls, credentials: Credentials, currencies: List[str], logger: logging.Logger) -> str:
         data_entry = []
         for currency in currencies:
             end_point = f"v2/auth/r/info/funding/{currency}"
-            header: Header = self.generate_headers(end_point, {})
+            header: Header = cls.generate_headers(credentials, end_point, {})
 
-            data = self.send_api_request(end_point, header, {})
+            data = cls.send_api_request(end_point, header, {}, logger)
 
             if data:
                 rate = f"{round(data[2][1] * 36500, 4)}%"
@@ -169,78 +172,40 @@ class FundingBot(object):
                 data_entry, headers=["Currency", "Lending Rates", "Duration"]
             )
 
-    def send_telegram_notification(self, msg: str):
-        requests.get(f"{self._config.get_telegram_api()}{msg}")
-
-    def generate_report(self, currencies: List[str]):
-        wallet_data = self.grab_current_wallet_status()
-        funding_summary = self.get_funding_summary(currencies)
-
-        while wallet_data is None:
-            wallet_data = self.grab_current_wallet_status()
-
-        self._logger.info(wallet_data)
-        self.send_telegram_notification(wallet_data)
-
-        while funding_summary is None:
-            funding_summary = self.get_funding_summary(currencies)
-
-        self._logger.info(funding_summary)
-        self.send_telegram_notification(funding_summary)
-
-        orders: List[ActiveFundingData] = []
-        for currency in currencies:
-            orders = orders + self.get_active_funding_data(currency)
-
-        order_data: List[Any] = []
-        for order in orders:
-            order_data.append(
-                [
-                    order["Currency"],
-                    order["ID"],
-                    order["Amount"],
-                    f"{round(order['Rate'] * 10000, 4)}%",
-                    order["Period"],
-                    order["PositionPair"],
-                ]
-            )
-
-        order_data_msg = tabulate.tabulate(
-            order_data,
-            headers=["Currency", "ID", "Amount", "Rate", "Period", "PositionPair"],
-        )
-
-        self._logger.info(order_data_msg)
-        self.send_telegram_notification(order_data_msg)
-
+    @classmethod
     def submit_funding_offer(
-        self, currency: str, rate_data: "RATE_DATA", amount: Union[int, float]
+            cls, credentials: Credentials, currency: str, rate_data: "RATE_DATA", amount: Union[int, float], logger: logging.Logger
     ) -> int:
         end_point = "v2/auth/w/funding/offer/submit"
+        telegram_api_key = credentials.get("telegram_api")
         offer_rate = max(rate_data.FRR, rate_data.Last)
         # if (rate_data.High - offer_rate) * 365 > 5:
         #     offer_rate = (rate_data.High - 1 / 365)
 
         if currency == "fUSD":
             if offer_rate < 0.0009:
-                self._logger.info(f"Current Offer Rate {offer_rate} -> 0.00098")
+                logger.info(f"Current Offer Rate {offer_rate} -> 0.00098")
+                cls.send_telegram_notification(telegram_api_key, f"Current Offer Rate {offer_rate} -> 0.00098")
                 offer_rate = 0.00098  # TODO requires changing
 
-        if offer_rate == 0:
-            self._logger.warning("Cannot submit order with 0 offer rate, abort")
+        if offer_rate <= 0:
+            logger.error(f"Cannot submit order with {offer_rate} offer rate, abort")
+            cls.send_telegram_notification(telegram_api_key, f"Cannot submit order with {offer_rate} offer rate, abort")
             return
 
         days = 2
-        if offer_rate * 36500 > 36:
+        if offer_rate * 36500 > 30:
             days = 30
-        # elif offer_rate * 365 > 25:
-        #     days = 20
-        # elif offer_rate * 365 > 20:
-        #     days = 10
+        elif offer_rate * 36500 > 25:
+            days = 20
+        elif offer_rate * 36500 > 20:
+            days = 10
+        elif offer_rate * 36500 > 15:
+            days = 5
 
         amount = ("%.6f" % abs(amount))[
-            :-1
-        ]  # Truncate at 5th decimal places to avoid rounding error
+                 :-1
+                 ]  # Truncate at 5th decimal places to avoid rounding error
         body: FundingOrderData = {
             "type": "LIMIT",
             "symbol": currency,
@@ -250,24 +215,25 @@ class FundingBot(object):
             "flags": 0,
         }
 
-        header: Header = self.generate_headers(end_point, body)
+        header: Header = cls.generate_headers(credentials, end_point, body)
 
-        data = self.send_api_request(end_point, header, body)
+        data = cls.send_api_request(end_point, header, body, logger)
 
         if data:
-            self._logger.info(f"Order ID: {data[4][0]} {data[7]}")
-            self.send_telegram_notification(f"Order ID: {data[4][0]} {data[7]}")
+            logger.info(f"Order ID: {data[4][0]} {data[7]}")
+            cls.send_telegram_notification(telegram_api_key, f"Order ID: {data[4][0]} {data[7]}")
 
             return data[4][0]  # Returns Offer ID
 
-    def get_active_funding_data(self, currency: str) -> List[ActiveFundingData]:
+    @classmethod
+    def get_active_funding_data(cls, credentials: Credentials, currency: str, logger: logging.Logger) -> List[ActiveFundingData]:
         end_point = f"v2/auth/r/funding/credits/{currency}"
 
         body: Dict[str, Any] = {}
 
-        header: Header = self.generate_headers(end_point, body)
+        header: Header = cls.generate_headers(credentials, end_point, body)
 
-        data = self.send_api_request(end_point, header, body)
+        data = cls.send_api_request(end_point, header, body, logger)
 
         order_data: List[ActiveFundingData] = []
 
@@ -287,16 +253,17 @@ class FundingBot(object):
 
         return order_data
 
+    @classmethod
     def get_active_funding_offer_data(
-        self, currency: str
+            cls, credentials: Credentials, currency: str, logger: logging.Logger
     ) -> List[ActiveFundingOfferData]:
         end_point = f"v2/auth/r/funding/offers/{currency}"
 
         body: Dict[str, Any] = {}
 
-        header: Header = self.generate_headers(end_point, body)
+        header: Header = cls.generate_headers(credentials, end_point, body)
 
-        data = self.send_api_request(end_point, header, body)
+        data = cls.send_api_request(end_point, header, body, logger)
 
         order_data: List[ActiveFundingOfferData] = []
 
@@ -315,29 +282,80 @@ class FundingBot(object):
 
         return order_data
 
-    def cancel_funding_offer(self, id_: str) -> bool:
+    @classmethod
+    def cancel_funding_offer(cls, credentials: Credentials, id_: str, logger: logging.Logger) -> bool:
         end_point = f"v2/auth/w/funding/offer/cancel"
+        telegram_api_key = credentials.get("telegram_api")
 
         body: Dict[str, Any] = {"id": int(id_)}
 
-        header: Header = self.generate_headers(end_point, body)
+        header: Header = cls.generate_headers(credentials, end_point, body)
 
-        data = self.send_api_request(end_point, header, body)
+        data = cls.send_api_request(end_point, header, body, logger)
 
         if data:
             if data[6] == "SUCCESS":
-                self.send_telegram_notification(f"Order id: {id_} cancel successfully")
-                self._logger.warning(f"Order id: {id_} cancel successfully")
+                cls.send_telegram_notification(telegram_api_key, f"Order id: {id_} cancel successfully")
+                logger.info(f"Order id: {id_} cancel successfully")
                 return True
             else:
-                self.send_telegram_notification(
+                cls.send_telegram_notification(
+                    telegram_api_key,
                     f"Unexpected Response: {data[6]} for order id: {id_}"
                 )
-                self._logger.warning(
+                logger.warning(
                     f"Unexpected Response: {data[6]} for order id: {id_}"
                 )
 
         return False
+
+    @classmethod
+    def send_telegram_notification(cls, telegram_api_key: Optional[str], msg: str):
+        if telegram_api_key:
+            requests.get(f"{telegram_api_key}{msg}")
+
+    @classmethod
+    def generate_report(cls, credentials: Credentials, currencies: List[str], logger: logging.Logger):
+        telegram_api_key = credentials.get("telegram_api")
+        wallet_data = cls.grab_current_wallet_status(credentials, logger)
+        funding_summary = cls.get_funding_summary(credentials, currencies, logger)
+
+        while wallet_data is None:
+            wallet_data = cls.grab_current_wallet_status(credentials, logger)
+
+        logger.info(wallet_data)
+        cls.send_telegram_notification(telegram_api_key, wallet_data)
+
+        while funding_summary is None:
+            funding_summary = cls.get_funding_summary(credentials, currencies, logger)
+
+        logger.info(funding_summary)
+        cls.send_telegram_notification(telegram_api_key, funding_summary)
+
+        orders: List[ActiveFundingData] = []
+        for currency in currencies:
+            orders = orders + cls.get_active_funding_data(credentials, currency, logger)
+
+        order_data: List[Any] = []
+        for order in orders:
+            order_data.append(
+                [
+                    order["Currency"],
+                    order["ID"],
+                    order["Amount"],
+                    f"{round(order['Rate'] * 10000, 4)}%",
+                    order["Period"],
+                    order["PositionPair"],
+                ]
+            )
+
+        order_data_msg = tabulate.tabulate(
+            order_data,
+            headers=["Currency", "ID", "Amount", "Rate", "Period", "PositionPair"],
+        )
+
+        logger.info(order_data_msg)
+        cls.send_telegram_notification(telegram_api_key, order_data_msg)
 
 
 __all__ = [

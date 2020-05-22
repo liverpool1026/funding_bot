@@ -1,5 +1,5 @@
 from .base import Configuration
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 
 # Please use this file as template and fill in the following configurations and rename the file to myconfig.py
@@ -27,12 +27,12 @@ class AccountConfiguration(Configuration):
         return []
 
     @classmethod
-    def get_minimum_lending_rate(cls) -> int:
-        return 5
+    def get_minimum_lending_rate(cls) -> Dict[str, int]:
+        return {}
 
     @classmethod
-    def get_maximum_lending_amount(cls) -> int:
-        return -1
+    def get_maximum_lending_amount(cls) -> Dict[str, int]:
+        return {}
 
 
 __all__ = [

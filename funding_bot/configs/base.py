@@ -1,4 +1,4 @@
-from typing import Optional, List
+from typing import Optional, List, Dict
 
 
 class Configuration(object):
@@ -32,16 +32,19 @@ class Configuration(object):
         return None
 
     @classmethod
-    def get_minimum_lending_rate(cls) -> int:
+    def get_minimum_lending_rate(cls) -> Dict[str, int]:
         # As an annual rate, that's the minimum rate for a day will equal this value / 365.
         # In percent form. So a return value of 20 means 20% per year == 20/365 % a day
+        # The dictionary key must be defined in get_funding_currencies
+        # For any entries in get_funding_currencies but not defined will be assumed to be no limit
         raise NotImplementedError
 
     @classmethod
-    def get_maximum_lending_amount(cls) -> int:
+    def get_maximum_lending_amount(cls) -> Dict[str, int]:
         # The total amount that can be lend out
-        # -1 means no limit
-        return -1
+        # The dictionary key must be defined in get_funding_currencies
+        # For any entries in get_funding_currencies but not defined will be assumed to be no limit
+        raise NotImplementedError
 
     @classmethod
     def get_funding_currencies(cls) -> List[str]:

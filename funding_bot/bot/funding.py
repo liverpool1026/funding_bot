@@ -64,8 +64,6 @@ ActiveFundingOfferData = TypedDict(
     },
 )
 
-LendingSummary = namedtuple("LendingSummary", ("Yield", "Duration"))
-
 
 class FundingBot(object):
     @classmethod

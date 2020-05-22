@@ -70,6 +70,12 @@ class FundingBot(object):
     def get_api_url(cls) -> str:
         return "https://api.bitfinex.com/"
 
+    def get_minimum_daily_lending_rate(self) -> float:
+        return round(self._config.get_minimum_lending_rate() / 36500, 7)
+
+    def get_maximum_lending_amount(self) -> float:
+        return self._config.get_maximum_lending_amount()
+
     @classmethod
     def generate_nonce(cls) -> str:
         return str(int(dt.datetime.now().timestamp() * 1000000))

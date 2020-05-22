@@ -46,7 +46,7 @@ class Account(object):
         self._maximum_lending_amount = configuration.get_maximum_lending_amount()
         self._minimum_lending_rate = {
             currency: round(rate / 36500, 7)
-            for currency, rate in configuration.get_minimum_lending_rate()
+            for currency, rate in configuration.get_minimum_lending_rate().items()
         }
         self._current_active_funding: List["ActiveFundingData"] = []
         self._current_pending_funding: List["ActiveFundingOfferData"] = []

@@ -93,7 +93,7 @@ class FundingBot(object):
         nonce = cls.generate_nonce()
         return {
             "bfx-nonce": nonce,
-            "bfx-apikey": credentials.api_key,
+            "bfx-apikey": credentials["api_key"],
             "bfx-signature": cls.generate_signature(
                 credentials, end_point, nonce, body
             ),

@@ -1,35 +1,66 @@
-from funding_bot.bot.funding import Credentials, ActiveFundingData, ActiveFundingOfferData
+import boto3
+import logging
 
-from typing import List, Dict, Any, Union, Optional, TYPE_CHECKING
-from typing_extensions import TypedDict
+import datetime as dt
+
+from collections import namedtuple
+
+from botocore.exceptions import ClientError
+
+from typing import List, Dict, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from funding_bot.configs.base import Configuration
-    from funding_bot.bot.tracker import RATE_DATA
+    from funding_bot.bot.funding import ActiveFundingData, ActiveFundingOfferData
+
+
+FUNDING_DATA = namedtuple("FUNDING_DATA", ["Date", "InitialBalance"])
+
+DEFAULT_VALUE = {
+    "fUSD": 1000,
+    "fBTC": 0.1,
+    "fETH": 1,
+}
+
+
+def get_initial_start_data(
+        currency: str, table_name: str, logger: logging.Logger
+) -> Optional[FUNDING_DATA]:
+    aws_context = boto3.resource("dynamodb", region_name="ap-southeast-2")
+    try:
+        initial_balance_data = aws_context.Table(table_name).get_item(
+            Key={"Key": currency}
+        )
+    except ClientError as e:
+        logger.debug(f"Failed to fetch balance for {currency}")
+        return None
+    else:
+        return FUNDING_DATA(
+            Date=dt.datetime.strptime(initial_balance_data["Item"]["Date"], "%m-%d-%Y"),
+            InitialBalance=float(initial_balance_data["Item"]["InitialBalance"]),
+        )
 
 
 class Account(object):
-    def __init__(self, configuration: "Configuration"):
-        self._credentials = Credentials(api_key=configuration.get_api_key(), api_secret_key=configuration.get_api_secret_key(), telegram_api=configuration.get_telegram_api())
+    def __init__(self, configuration: "Configuration", logger: logging.Logger):
         self._maximum_lending_amount = configuration.get_maximum_lending_amount()
         self._minimum_lending_rate = {
             currency: round(rate / 36500, 7)
             for currency, rate in configuration.get_minimum_lending_rate()
         }
-        self._active_currencies = configuration.get_funding_currencies()
-
         self._current_active_funding: List["ActiveFundingData"] = []
         self._current_pending_funding: List["ActiveFundingOfferData"] = []
 
         self._current_lend_amount: float = 0
         self._current_pending_amount: float = 0
         self._available_fundings = dict()
+        self._initial_balance = {
+            currency: get_initial_start_data(currency, configuration.get_dynamodb_table_name(), logger) or FUNDING_DATA(Date=dt.datetime.now().date(), InitialBalance=DEFAULT_VALUE[currency])
+            for currency in configuration.get_funding_currencies()
+        }
 
-    def get_credentials(self) -> Credentials:
-        return self._credentials.copy()
-
-    def get_active_funding_currencies(self) -> List[str]:
-        return list(self._active_currencies)
+    def get_initial_balance(self, currency: str) -> FUNDING_DATA:
+        return self._initial_balance[currency]
 
     def get_minimum_daily_lending_rate(self, currency: str) -> float:
         return self._minimum_lending_rate.get(currency, -1)
@@ -73,3 +104,4 @@ class Account(object):
 
     def update_available_funding(self, currency: str, amount: float):
         self._available_fundings[currency] = amount
+

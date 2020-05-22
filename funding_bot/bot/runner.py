@@ -1,26 +1,23 @@
 import time
-import boto3
 import logging
 
 import datetime as dt
 
-from collections import defaultdict, namedtuple
-from botocore.exceptions import ClientError
+from collections import defaultdict
 
 from funding_bot.configs.myconfig import AccountConfiguration
-from funding_bot.bot.funding import FundingBot
+from funding_bot.bot.funding import FundingBot, Credentials
 from funding_bot.bot.tracker import Tracker
+from funding_bot.bot.account import Account, FUNDING_DATA
 
 from typing import Dict
 
-FUNDING_DATA = namedtuple("FUNDING_DATA", ["Date", "InitialBalance"])
 
 MIN_FUNDING_AMOUNT = {
     "fUSD": 50,
     "fETH": 0.5,
+    "fBTC": 0.01,
 }
-
-CURRENCIES = ["fUSD", "fETH"]
 
 
 def get_runtime(start_time: float) -> str:
@@ -30,95 +27,79 @@ def get_runtime(start_time: float) -> str:
     return str(dt.timedelta(hours=hours, minutes=minutes, seconds=seconds))
 
 
-def get_initial_start_data(
-    currency: str, table_name: str, logger: logging.Logger
-) -> FUNDING_DATA:
-    aws_context = boto3.resource("dynamodb", region_name="ap-southeast-2")
-    try:
-        initial_balance_data = aws_context.Table(table_name).get_item(
-            Key={"Key": currency}
-        )
-    except ClientError as e:
-        logger.debug(f"Failed to fetch balance for {currency}")
-        return FUNDING_DATA(Date=dt.datetime.now().date(), InitialBalance=1000,)
-    else:
-        return FUNDING_DATA(
-            Date=dt.datetime.strptime(initial_balance_data["Item"]["Date"], "%m-%d-%Y"),
-            InitialBalance=float(initial_balance_data["Item"]["InitialBalance"]),
-        )
-
-
 def runner(logger: logging.Logger):
     start_time = dt.datetime.now().timestamp()
     run_hours = 0
-    bot = FundingBot(AccountConfiguration(), logger)
-    last_available_funding = defaultdict(float)
-    current_available_funding = defaultdict(float)
-    trackers: Dict[str, Tracker] = dict()
-    initial_data: Dict[str, FUNDING_DATA] = dict()
+    bot = FundingBot
+    funding_data_tracker = Account(AccountConfiguration(), logger)
+    credentials = Credentials(
+        api_key=AccountConfiguration.get_api_key(),
+        api_secret_key=AccountConfiguration.get_api_secret_key(),
+        telegram_api=AccountConfiguration.get_telegram_api()
+    )
+    telegram_api_key = AccountConfiguration.get_telegram_api()
+    rate_trackers: Dict[str, Tracker] = dict()
     submitted_orders: Dict[str, Dict[str, dt.datetime]] = defaultdict(dict)
 
-    for currency in CURRENCIES:
-        trackers[currency] = Tracker(currency=currency, logger=logger)
-        initial_data[currency] = get_initial_start_data(
-            currency, AccountConfiguration.get_dynamodb_table_name(), logger=logger
-        )
-        if initial_data[currency].InitialBalance == 1000:
-            # TODO update using wallet balance
-            pass
+    funding_currencies = AccountConfiguration.get_funding_currencies()
+
+    for currency in funding_currencies:
+        rate_trackers[currency] = Tracker(currency=currency, logger=logger)
 
     for i in range(20):
         # Need initial value
-        for currency in CURRENCIES:
+        for currency in funding_currencies:
             # Rate Tracker Update Rate
-            tracker = trackers[currency]
-            tracker.update_rates()
+            rate_tracker = rate_trackers[currency]
+            rate_tracker.update_rates()
 
     while True:
-        for currency in CURRENCIES:
+        for currency in funding_currencies:
             # Rate Tracker Update Rate
-            tracker = trackers[currency]
-            tracker.update_rates()
+            rate_tracker = rate_trackers[currency]
+            rate_tracker.update_rates()
 
             # Check balance
-            current_available_funding[currency] = bot.grab_available_funding(
-                currency=currency
-            )
-            if current_available_funding[currency] > MIN_FUNDING_AMOUNT[currency]:
-                if (
-                    current_available_funding[currency]
-                    != last_available_funding[currency]
-                ):
-                    bot.send_telegram_notification(
-                        f"{currency} Available Funding: {current_available_funding[currency]}"
-                    )
-                    logger.info(
-                        f"{currency} Available Funding: {current_available_funding[currency]}"
-                    )
-                    order = bot.submit_funding_offer(
-                        currency,
-                        tracker.get_latest_rate_data(),
-                        current_available_funding[currency],
-                    )
+            funding_data_tracker.update_available_funding(currency=currency, amount=bot.grab_available_funding(
+                credentials=credentials,
+                currency=currency,
+                logger=logger,
+            ))
+            available_funding = funding_data_tracker.get_funding_for_offer(currency)
+            if available_funding > MIN_FUNDING_AMOUNT[currency]:
+                bot.send_telegram_notification(
+                    telegram_api_key,
+                    f"{currency} Available Funding for offer: {available_funding}"
+                )
+                logger.info(
+                    f"{currency} Available Funding for offer: {available_funding}"
+                )
 
-                    if order:
-                        submitted_orders[currency][str(order)] = dt.datetime.now()
-                        current_available_funding[currency] = 0
-                    else:
-                        bot.send_telegram_notification(
-                            f"Failed to submit order for {current_available_funding[currency]}"
-                        )
-            last_available_funding[currency] = current_available_funding[currency]
+                order = bot.submit_funding_offer(
+                    credentials,
+                    currency,
+                    rate_tracker.get_latest_rate_data(),
+                    available_funding,
+                    logger,
+                )
+
+                if order:
+                    submitted_orders[currency][str(order)] = dt.datetime.now()
+                else:
+                    bot.send_telegram_notification(
+                        telegram_api_key,
+                        f"Failed to submit {currency} order for {available_funding}"
+                    )
 
             order_successfully_executed = []
             if submitted_orders[currency]:
                 active_order_id = [
-                    order["ID"] for order in bot.get_active_funding_offer_data(currency)
+                    order["ID"] for order in bot.get_active_funding_offer_data(credentials, currency, logger)
                 ]
                 for order in submitted_orders[currency]:
                     if int(order) not in active_order_id:
                         message = f"Order: {order} executed"
-                        bot.send_telegram_notification(message)
+                        bot.send_telegram_notification(telegram_api_key, message)
                         logger.info(message)
                         order_successfully_executed.append(order)
 
@@ -131,10 +112,10 @@ def runner(logger: logging.Logger):
             ].items():
                 if dt.datetime.now() - submitted_time > dt.timedelta(hours=1):
                     message = f"Order: {submitted_order_id} yet to be executed"
-                    bot.send_telegram_notification(message)
+                    bot.send_telegram_notification(telegram_api_key, message)
                     logger.info(message)
 
-                    if bot.cancel_funding_offer(submitted_order_id):
+                    if bot.cancel_funding_offer(credentials, submitted_order_id, logger):
                         order_successfully_deleted.append(submitted_order_id)
 
             for order_id in order_successfully_deleted:
@@ -144,30 +125,31 @@ def runner(logger: logging.Logger):
             run_hours = int((dt.datetime.now().timestamp() - start_time) / 3600)
             message: str = f"Summary Report @ {dt.datetime.now().date()}\n" f"Runtime: {get_runtime(start_time)}\n"
 
-            for currency in CURRENCIES:
-                current_balance: float = bot.get_currency_balance(currency)
+            for currency in funding_currencies:
+                current_balance: float = bot.get_currency_balance(credentials, currency, logger)
                 roi: float = 0
                 gain: float = 0
+                initial_balance_data: FUNDING_DATA = funding_data_tracker.get_initial_balance(currency)
                 if current_balance != -1:
-                    gain = current_balance - initial_data[currency].InitialBalance
+                    gain = current_balance - initial_balance_data.InitialBalance
                     roi = (
                         365
                         * gain
-                        / (dt.datetime.now() - initial_data[currency].Date).days
-                        / initial_data[currency].InitialBalance
+                        / (dt.datetime.now() - initial_balance_data.Date).days
+                        / initial_balance_data.InitialBalance
                     )
 
                 message += f"\n{currency[1:]}: \n"
-                message += f"Initial Balance: {initial_data[currency].InitialBalance}\n"
-                message += f"Start Date: {initial_data[currency].Date}\n"
+                message += f"Initial Balance: {initial_balance_data.InitialBalance}\n"
+                message += f"Start Date: {initial_balance_data.Date}\n"
                 message += f"Current Balance: {current_balance}\n"
                 message += f"Gain: {gain} {currency[1:]}\n"
                 message += f"ROI: {round(roi * 100, 2)} %\n"
 
-            bot.send_telegram_notification(message)
+            bot.send_telegram_notification(telegram_api_key, message)
             logger.info(message)
 
-            bot.generate_report(CURRENCIES)
+            bot.generate_report(credentials, funding_currencies, logger)
 
         time.sleep(5)  # RESTful API has connection limits, consider switch to Websocket
 

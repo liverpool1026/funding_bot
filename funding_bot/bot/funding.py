@@ -87,17 +87,27 @@ class FundingBot(object):
         ).hexdigest()
 
     @classmethod
-    def generate_headers(cls, credentials: Credentials, end_point: str, body: Dict[str, Any]) -> Header:
+    def generate_headers(
+        cls, credentials: Credentials, end_point: str, body: Dict[str, Any]
+    ) -> Header:
         nonce = cls.generate_nonce()
         return {
             "bfx-nonce": nonce,
             "bfx-apikey": credentials.api_key,
-            "bfx-signature": cls.generate_signature(credentials, end_point, nonce, body),
+            "bfx-signature": cls.generate_signature(
+                credentials, end_point, nonce, body
+            ),
             "content-type": "application/json",
         }
 
     @classmethod
-    def send_api_request(cls, end_point: str, header: Header, body: Dict[str, Any], logger: logging.Logger):
+    def send_api_request(
+        cls,
+        end_point: str,
+        header: Header,
+        body: Dict[str, Any],
+        logger: logging.Logger,
+    ):
         response = requests.post(
             f"{cls.get_api_url()}{end_point}", headers=header, data=json.dumps(body)
         )
@@ -110,7 +120,9 @@ class FundingBot(object):
             return json.loads(response.content.decode())
 
     @classmethod
-    def grab_current_wallet_status(cls, credentials: Credentials, logger: logging.Logger) -> Optional[str]:
+    def grab_current_wallet_status(
+        cls, credentials: Credentials, logger: logging.Logger
+    ) -> Optional[str]:
         end_point = "v2/auth/r/wallets"
         body: Dict[str, Any] = {}
         header: Header = cls.generate_headers(credentials, end_point, body)
@@ -122,7 +134,9 @@ class FundingBot(object):
             return tabulate.tabulate(data, headers=["Type", "Currency", "Amount"])
 
     @classmethod
-    def get_currency_balance(cls, credentials: Credentials, currency: str, logger: logging.Logger) -> float:
+    def get_currency_balance(
+        cls, credentials: Credentials, currency: str, logger: logging.Logger
+    ) -> float:
         end_point = "v2/auth/r/wallets"
         body: Dict[str, Any] = {}
         header: Header = cls.generate_headers(credentials, end_point, body)
@@ -135,7 +149,9 @@ class FundingBot(object):
         return -1
 
     @classmethod
-    def grab_available_funding(cls, credentials: Credentials, currency: str, logger: logging.Logger) -> float:
+    def grab_available_funding(
+        cls, credentials: Credentials, currency: str, logger: logging.Logger
+    ) -> float:
         end_point = "v2/auth/calc/order/avail"
         body: Dict[str, Any] = {
             "symbol": currency,
@@ -152,7 +168,9 @@ class FundingBot(object):
         return -1.0
 
     @classmethod
-    def get_funding_summary(cls, credentials: Credentials, currencies: List[str], logger: logging.Logger) -> str:
+    def get_funding_summary(
+        cls, credentials: Credentials, currencies: List[str], logger: logging.Logger
+    ) -> str:
         data_entry = []
         for currency in currencies:
             end_point = f"v2/auth/r/info/funding/{currency}"
@@ -172,7 +190,12 @@ class FundingBot(object):
 
     @classmethod
     def submit_funding_offer(
-            cls, credentials: Credentials, currency: str, rate_data: "RATE_DATA", amount: Union[int, float], logger: logging.Logger
+        cls,
+        credentials: Credentials,
+        currency: str,
+        rate_data: "RATE_DATA",
+        amount: Union[int, float],
+        logger: logging.Logger,
     ) -> int:
         end_point = "v2/auth/w/funding/offer/submit"
         telegram_api_key = credentials.get("telegram_api")
@@ -183,12 +206,17 @@ class FundingBot(object):
         if currency == "fUSD":
             if offer_rate < 0.0009:
                 logger.info(f"Current Offer Rate {offer_rate} -> 0.00098")
-                cls.send_telegram_notification(telegram_api_key, f"Current Offer Rate {offer_rate} -> 0.00098")
+                cls.send_telegram_notification(
+                    telegram_api_key, f"Current Offer Rate {offer_rate} -> 0.00098"
+                )
                 offer_rate = 0.00098  # TODO requires changing
 
         if offer_rate <= 0:
             logger.error(f"Cannot submit order with {offer_rate} offer rate, abort")
-            cls.send_telegram_notification(telegram_api_key, f"Cannot submit order with {offer_rate} offer rate, abort")
+            cls.send_telegram_notification(
+                telegram_api_key,
+                f"Cannot submit order with {offer_rate} offer rate, abort",
+            )
             return
 
         days = 2
@@ -202,8 +230,8 @@ class FundingBot(object):
             days = 5
 
         amount = ("%.6f" % abs(amount))[
-                 :-1
-                 ]  # Truncate at 5th decimal places to avoid rounding error
+            :-1
+        ]  # Truncate at 5th decimal places to avoid rounding error
         body: FundingOrderData = {
             "type": "LIMIT",
             "symbol": currency,
@@ -219,12 +247,16 @@ class FundingBot(object):
 
         if data:
             logger.info(f"Order ID: {data[4][0]} {data[7]}")
-            cls.send_telegram_notification(telegram_api_key, f"Order ID: {data[4][0]} {data[7]}")
+            cls.send_telegram_notification(
+                telegram_api_key, f"Order ID: {data[4][0]} {data[7]}"
+            )
 
             return data[4][0]  # Returns Offer ID
 
     @classmethod
-    def get_active_funding_data(cls, credentials: Credentials, currency: str, logger: logging.Logger) -> List[ActiveFundingData]:
+    def get_active_funding_data(
+        cls, credentials: Credentials, currency: str, logger: logging.Logger
+    ) -> List[ActiveFundingData]:
         end_point = f"v2/auth/r/funding/credits/{currency}"
 
         body: Dict[str, Any] = {}
@@ -253,7 +285,7 @@ class FundingBot(object):
 
     @classmethod
     def get_active_funding_offer_data(
-            cls, credentials: Credentials, currency: str, logger: logging.Logger
+        cls, credentials: Credentials, currency: str, logger: logging.Logger
     ) -> List[ActiveFundingOfferData]:
         end_point = f"v2/auth/r/funding/offers/{currency}"
 
@@ -281,7 +313,9 @@ class FundingBot(object):
         return order_data
 
     @classmethod
-    def cancel_funding_offer(cls, credentials: Credentials, id_: str, logger: logging.Logger) -> bool:
+    def cancel_funding_offer(
+        cls, credentials: Credentials, id_: str, logger: logging.Logger
+    ) -> bool:
         end_point = f"v2/auth/w/funding/offer/cancel"
         telegram_api_key = credentials.get("telegram_api")
 
@@ -293,17 +327,17 @@ class FundingBot(object):
 
         if data:
             if data[6] == "SUCCESS":
-                cls.send_telegram_notification(telegram_api_key, f"Order id: {id_} cancel successfully")
+                cls.send_telegram_notification(
+                    telegram_api_key, f"Order id: {id_} cancel successfully"
+                )
                 logger.info(f"Order id: {id_} cancel successfully")
                 return True
             else:
                 cls.send_telegram_notification(
                     telegram_api_key,
-                    f"Unexpected Response: {data[6]} for order id: {id_}"
+                    f"Unexpected Response: {data[6]} for order id: {id_}",
                 )
-                logger.warning(
-                    f"Unexpected Response: {data[6]} for order id: {id_}"
-                )
+                logger.warning(f"Unexpected Response: {data[6]} for order id: {id_}")
 
         return False
 
@@ -313,7 +347,9 @@ class FundingBot(object):
             requests.get(f"{telegram_api_key}{msg}")
 
     @classmethod
-    def generate_report(cls, credentials: Credentials, currencies: List[str], logger: logging.Logger):
+    def generate_report(
+        cls, credentials: Credentials, currencies: List[str], logger: logging.Logger
+    ):
         telegram_api_key = credentials.get("telegram_api")
         wallet_data = cls.grab_current_wallet_status(credentials, logger)
         funding_summary = cls.get_funding_summary(credentials, currencies, logger)

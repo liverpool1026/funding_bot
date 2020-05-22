@@ -24,7 +24,7 @@ DEFAULT_VALUE = {
 
 
 def get_initial_start_data(
-        currency: str, table_name: str, logger: logging.Logger
+    currency: str, table_name: str, logger: logging.Logger
 ) -> Optional[FUNDING_DATA]:
     aws_context = boto3.resource("dynamodb", region_name="ap-southeast-2")
     try:
@@ -55,7 +55,12 @@ class Account(object):
         self._current_pending_amount: float = 0
         self._available_fundings = dict()
         self._initial_balance = {
-            currency: get_initial_start_data(currency, configuration.get_dynamodb_table_name(), logger) or FUNDING_DATA(Date=dt.datetime.now().date(), InitialBalance=DEFAULT_VALUE[currency])
+            currency: get_initial_start_data(
+                currency, configuration.get_dynamodb_table_name(), logger
+            )
+            or FUNDING_DATA(
+                Date=dt.datetime.now().date(), InitialBalance=DEFAULT_VALUE[currency]
+            )
             for currency in configuration.get_funding_currencies()
         }
 
@@ -74,19 +79,30 @@ class Account(object):
     def get_pending_funding(self) -> List["ActiveFundingOfferData"]:
         return list(self._current_pending_funding)
 
-    def update_current_active_funding(self, active_funding_data: List["ActiveFundingData"]):
+    def update_current_active_funding(
+        self, active_funding_data: List["ActiveFundingData"]
+    ):
         self._current_active_funding = active_funding_data
         self._repopulate_lending_amount()
 
-    def update_current_pending_offers(self, active_offer_data: List["ActiveFundingOfferData"]):
+    def update_current_pending_offers(
+        self, active_offer_data: List["ActiveFundingOfferData"]
+    ):
         self._current_pending_funding = active_offer_data
         self._repopulate_pending_amount()
 
     def _repopulate_lending_amount(self):
-        self._current_lend_amount = sum([active_funding["Amount"] for active_funding in self.get_active_funding_data()])
+        self._current_lend_amount = sum(
+            [
+                active_funding["Amount"]
+                for active_funding in self.get_active_funding_data()
+            ]
+        )
 
     def _repopulate_pending_amount(self):
-        self._current_pending_amount = sum([pending_offer["Amount"] for pending_offer in self.get_pending_funding()])
+        self._current_pending_amount = sum(
+            [pending_offer["Amount"] for pending_offer in self.get_pending_funding()]
+        )
 
     def get_available_fundings(self) -> Dict[str, float]:
         return dict(self._available_fundings)
@@ -96,7 +112,12 @@ class Account(object):
         maximum_lending_amount = self._maximum_lending_amount.get(currency)
 
         if maximum_lending_amount:
-            available_funding = min(available_funding, maximum_lending_amount - self._current_lend_amount - self._current_pending_amount)
+            available_funding = min(
+                available_funding,
+                maximum_lending_amount
+                - self._current_lend_amount
+                - self._current_pending_amount,
+            )
             if available_funding < 0:
                 return 0
             return available_funding
@@ -104,4 +125,3 @@ class Account(object):
 
     def update_available_funding(self, currency: str, amount: float):
         self._available_fundings[currency] = amount
-

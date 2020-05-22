@@ -35,7 +35,7 @@ def runner(logger: logging.Logger):
     credentials = Credentials(
         api_key=AccountConfiguration.get_api_key(),
         api_secret_key=AccountConfiguration.get_api_secret_key(),
-        telegram_api=AccountConfiguration.get_telegram_api()
+        telegram_api=AccountConfiguration.get_telegram_api(),
     )
     telegram_api_key = AccountConfiguration.get_telegram_api()
     rate_trackers: Dict[str, Tracker] = dict()
@@ -60,16 +60,17 @@ def runner(logger: logging.Logger):
             rate_tracker.update_rates()
 
             # Check balance
-            funding_data_tracker.update_available_funding(currency=currency, amount=bot.grab_available_funding(
-                credentials=credentials,
+            funding_data_tracker.update_available_funding(
                 currency=currency,
-                logger=logger,
-            ))
+                amount=bot.grab_available_funding(
+                    credentials=credentials, currency=currency, logger=logger,
+                ),
+            )
             available_funding = funding_data_tracker.get_funding_for_offer(currency)
             if available_funding > MIN_FUNDING_AMOUNT[currency]:
                 bot.send_telegram_notification(
                     telegram_api_key,
-                    f"{currency} Available Funding for offer: {available_funding}"
+                    f"{currency} Available Funding for offer: {available_funding}",
                 )
                 logger.info(
                     f"{currency} Available Funding for offer: {available_funding}"
@@ -88,13 +89,16 @@ def runner(logger: logging.Logger):
                 else:
                     bot.send_telegram_notification(
                         telegram_api_key,
-                        f"Failed to submit {currency} order for {available_funding}"
+                        f"Failed to submit {currency} order for {available_funding}",
                     )
 
             order_successfully_executed = []
             if submitted_orders[currency]:
                 active_order_id = [
-                    order["ID"] for order in bot.get_active_funding_offer_data(credentials, currency, logger)
+                    order["ID"]
+                    for order in bot.get_active_funding_offer_data(
+                        credentials, currency, logger
+                    )
                 ]
                 for order in submitted_orders[currency]:
                     if int(order) not in active_order_id:
@@ -115,7 +119,9 @@ def runner(logger: logging.Logger):
                     bot.send_telegram_notification(telegram_api_key, message)
                     logger.info(message)
 
-                    if bot.cancel_funding_offer(credentials, submitted_order_id, logger):
+                    if bot.cancel_funding_offer(
+                        credentials, submitted_order_id, logger
+                    ):
                         order_successfully_deleted.append(submitted_order_id)
 
             for order_id in order_successfully_deleted:
@@ -126,10 +132,14 @@ def runner(logger: logging.Logger):
             message: str = f"Summary Report @ {dt.datetime.now().date()}\n" f"Runtime: {get_runtime(start_time)}\n"
 
             for currency in funding_currencies:
-                current_balance: float = bot.get_currency_balance(credentials, currency, logger)
+                current_balance: float = bot.get_currency_balance(
+                    credentials, currency, logger
+                )
                 roi: float = 0
                 gain: float = 0
-                initial_balance_data: FUNDING_DATA = funding_data_tracker.get_initial_balance(currency)
+                initial_balance_data: FUNDING_DATA = funding_data_tracker.get_initial_balance(
+                    currency
+                )
                 if current_balance != -1:
                     gain = current_balance - initial_balance_data.InitialBalance
                     roi = (

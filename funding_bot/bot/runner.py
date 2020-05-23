@@ -8,16 +8,9 @@ from collections import defaultdict
 from funding_bot.configs.myconfig import AccountConfiguration
 from funding_bot.bot.funding import FundingBot, Credentials
 from funding_bot.bot.tracker import Tracker
-from funding_bot.bot.account import Account, FUNDING_DATA
+from funding_bot.bot.account import Account, FundingData
 
 from typing import Dict
-
-
-MIN_FUNDING_AMOUNT = {
-    "fUSD": 50,
-    "fETH": 0.5,
-    "fBTC": 0.01,
-}
 
 
 def get_runtime(start_time: float) -> str:
@@ -66,22 +59,21 @@ def runner(logger: logging.Logger):
                     credentials=credentials, currency=currency, logger=logger,
                 ),
             )
-            available_funding = funding_data_tracker.get_funding_for_offer(currency)
-            if available_funding > MIN_FUNDING_AMOUNT[currency]:
+            funding_offer = funding_data_tracker.generate_lending_offer(currency, rate_tracker.determine_offer_rate())
+            if funding_offer:
                 bot.send_telegram_notification(
                     telegram_api_key,
-                    f"{currency} Available Funding for offer: {available_funding}",
+                    f"{currency} Available Funding for offer: {funding_offer.amount}",
                 )
                 logger.info(
-                    f"{currency} Available Funding for offer: {available_funding}"
+                    f"{currency} Available Funding for offer: {funding_offer.amount}"
                 )
 
                 order = bot.submit_funding_offer(
                     credentials,
                     currency,
-                    rate_tracker.get_latest_rate_data(),
-                    available_funding,
-                    funding_data_tracker.get_minimum_daily_lending_rate(currency)
+                    funding_offer,
+                    funding_data_tracker.get_minimum_daily_lending_rate(currency),
                     logger,
                 )
 
@@ -90,20 +82,23 @@ def runner(logger: logging.Logger):
                 else:
                     bot.send_telegram_notification(
                         telegram_api_key,
-                        f"Failed to submit {currency} order for {available_funding}",
+                        f"Failed to submit {currency} order for {funding_offer.amount}",
                     )
 
             order_successfully_executed = []
             if submitted_orders[currency]:
                 active_order_id = [
-                    order["ID"]
+                    order.id
                     for order in bot.get_active_funding_offer_data(
                         credentials, currency, logger
                     )
                 ]
+                historic_offer = bot.get_funding_offer_history(credentials, currency, logger)
+
                 for order in submitted_orders[currency]:
-                    if int(order) not in active_order_id:
-                        message = f"Order: {order} executed"
+                    order_status = historic_offer.get(order, None)
+                    if order_status:
+                        message = f"Order: {order} {order_status}"
                         bot.send_telegram_notification(telegram_api_key, message)
                         logger.info(message)
                         order_successfully_executed.append(order)
@@ -138,21 +133,21 @@ def runner(logger: logging.Logger):
                 )
                 roi: float = 0
                 gain: float = 0
-                initial_balance_data: FUNDING_DATA = funding_data_tracker.get_initial_balance(
+                initial_balance_data: FundingData = funding_data_tracker.get_initial_balance(
                     currency
                 )
                 if current_balance != -1:
-                    gain = current_balance - initial_balance_data.InitialBalance
+                    gain = current_balance - initial_balance_data.initial_balance
                     roi = (
                         365
                         * gain
-                        / (dt.datetime.now() - initial_balance_data.Date).days
-                        / initial_balance_data.InitialBalance
+                        / (dt.datetime.now().date() - initial_balance_data.date).days
+                        / initial_balance_data.initial_balance
                     )
 
                 message += f"\n{currency[1:]}: \n"
-                message += f"Initial Balance: {initial_balance_data.InitialBalance}\n"
-                message += f"Start Date: {initial_balance_data.Date}\n"
+                message += f"Initial Balance: {initial_balance_data.initial_balance}\n"
+                message += f"Start Date: {initial_balance_data.date}\n"
                 message += f"Current Balance: {current_balance}\n"
                 message += f"Gain: {gain} {currency[1:]}\n"
                 message += f"ROI: {round(roi * 100, 2)} %\n"

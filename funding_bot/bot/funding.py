@@ -6,13 +6,11 @@ import tabulate
 import requests
 import datetime as dt
 
-from collections import namedtuple
-
-from typing import List, Dict, Any, Union, Optional, TYPE_CHECKING
+from typing import List, Dict, Any, Optional, NamedTuple, TYPE_CHECKING
 from typing_extensions import TypedDict
 
 if TYPE_CHECKING:
-    from funding_bot.bot.tracker import RATE_DATA
+    from funding_bot.bot.account import LendingOffer
 
 Header = TypedDict(
     "Header",
@@ -20,49 +18,38 @@ Header = TypedDict(
 )
 
 
-class Credentials(TypedDict):
+class Credentials(NamedTuple):
     api_key: str
     api_secret_key: str
-    telegram_api: str
+    telegram_api: Optional[str]
 
 
-FundingOrderData = TypedDict(
-    "FundingOrderData",
-    {
-        "type": str,
-        "symbol": str,
-        "amount": str,
-        "rate": str,
-        "period": int,
-        "flags": int,
-    },
-)
-
-ActiveFundingData = TypedDict(
-    "ActiveFundingData",
-    {
-        "ID": str,
-        "Currency": str,
-        "Amount": float,
-        "Status": str,
-        "Rate": float,
-        "Period": int,
-        "PositionPair": str,
-    },
-)
+class FundingOrderData(TypedDict):
+    type: str
+    symbol: str
+    amount: str
+    rate: str
+    period: int
+    flags: int
 
 
-ActiveFundingOfferData = TypedDict(
-    "ActiveFundingOfferData",
-    {
-        "ID": str,
-        "Currency": str,
-        "Amount": float,
-        "Status": str,
-        "Rate": float,
-        "Period": int,
-    },
-)
+class ActiveFundingData(NamedTuple):
+    id: str
+    currency: str
+    amount: float
+    status: str
+    rate: float
+    period: int
+    position_pair: str
+
+
+class ActiveFundingOfferData(NamedTuple):
+    id: str
+    currency: str
+    amount: float
+    status: str
+    rate: float
+    period: int
 
 
 class FundingBot(object):
@@ -81,7 +68,7 @@ class FundingBot(object):
         signature = f"/api/{end_point}{nonce}{json.dumps(body)}"
 
         return hmac.new(
-            key=credentials["api_secret_key"].encode("utf8"),
+            key=credentials.api_secret_key.encode("utf8"),
             msg=signature.encode("utf8"),
             digestmod=hashlib.sha384,
         ).hexdigest()
@@ -93,7 +80,7 @@ class FundingBot(object):
         nonce = cls.generate_nonce()
         return {
             "bfx-nonce": nonce,
-            "bfx-apikey": credentials["api_key"],
+            "bfx-apikey": credentials.api_key,
             "bfx-signature": cls.generate_signature(
                 credentials, end_point, nonce, body
             ),
@@ -193,24 +180,14 @@ class FundingBot(object):
         cls,
         credentials: Credentials,
         currency: str,
-        rate_data: "RATE_DATA",
-        amount: Union[int, float],
+        lending_data: "LendingOffer",
         minimum_lending_rate: float,
         logger: logging.Logger,
     ) -> int:
         end_point = "v2/auth/w/funding/offer/submit"
-        telegram_api_key = credentials.get("telegram_api")
-        offer_rate = max(rate_data.FRR, rate_data.Last)
-        # if (rate_data.High - offer_rate) * 365 > 5:
-        #     offer_rate = (rate_data.High - 1 / 365)
-
-        if currency == "fUSD":
-            if offer_rate < 0.0009:
-                logger.info(f"Current Offer Rate {offer_rate} -> 0.00098")
-                cls.send_telegram_notification(
-                    telegram_api_key, f"Current Offer Rate {offer_rate} -> 0.00098"
-                )
-                offer_rate = 0.00098  # TODO requires changing
+        telegram_api_key = credentials.telegram_api
+        offer_rate = lending_data.rate
+        days = lending_data.period
 
         if offer_rate <= 0:
             logger.error(f"Cannot submit order with {offer_rate} offer rate, abort")
@@ -228,27 +205,14 @@ class FundingBot(object):
             )
             return
 
-        days = 2
-        if offer_rate * 36500 > 30:
-            days = 30
-        elif offer_rate * 36500 > 25:
-            days = 20
-        elif offer_rate * 36500 > 20:
-            days = 10
-        elif offer_rate * 36500 > 15:
-            days = 5
-
-        amount = ("%.6f" % abs(amount))[
-            :-1
-        ]  # Truncate at 5th decimal places to avoid rounding error
-        body: FundingOrderData = {
-            "type": "LIMIT",
-            "symbol": currency,
-            "amount": amount,
-            "rate": str(offer_rate),
-            "period": days,
-            "flags": 0,
-        }
+        body: FundingOrderData = FundingOrderData(
+            type="LIMIT",
+            symbol=currency,
+            amount=lending_data.amount,
+            rate=str(offer_rate),
+            period=days,
+            flags=0,
+        )
 
         header: Header = cls.generate_headers(credentials, end_point, body)
 
@@ -280,17 +244,33 @@ class FundingBot(object):
             for order in data:
                 order_data.append(
                     ActiveFundingData(
-                        ID=order[0],
-                        Currency=order[1],
-                        Amount=order[5],
-                        Status=order[7],
-                        Rate=order[11],
-                        Period=order[12],
-                        PositionPair=order[-1],
+                        id=order[0],
+                        currency=order[1],
+                        amount=order[5],
+                        status=order[7],
+                        rate=order[11],
+                        period=order[12],
+                        position_pair=order[-1],
                     )
                 )
 
         return order_data
+
+    @classmethod
+    def get_funding_offer_history(
+            cls, credentials: Credentials, currency: str, logger: logging.Logger
+    ) -> Dict[str, str]:
+        end_point = f"v2/auth/r/funding/offers/{currency}/hist"
+
+        body: Dict[str, Any] = {}
+
+        header: Header = cls.generate_headers(credentials, end_point, body)
+
+        data = cls.send_api_request(end_point, header, body, logger)
+
+        if data:
+            return {offer[0]: offer[10] for offer in data}
+        return dict()
 
     @classmethod
     def get_active_funding_offer_data(
@@ -310,12 +290,12 @@ class FundingBot(object):
             for order in data:
                 order_data.append(
                     ActiveFundingOfferData(
-                        ID=order[0],
-                        Currency=order[1],
-                        Amount=order[5],
-                        Status=order[10],
-                        Rate=order[14],
-                        Period=order[15],
+                        id=order[0],
+                        currency=order[1],
+                        amount=order[5],
+                        status=order[10],
+                        rate=order[14],
+                        period=order[15],
                     )
                 )
 
@@ -326,7 +306,7 @@ class FundingBot(object):
         cls, credentials: Credentials, id_: str, logger: logging.Logger
     ) -> bool:
         end_point = f"v2/auth/w/funding/offer/cancel"
-        telegram_api_key = credentials.get("telegram_api")
+        telegram_api_key = credentials.telegram_api
 
         body: Dict[str, Any] = {"id": int(id_)}
 
@@ -359,7 +339,7 @@ class FundingBot(object):
     def generate_report(
         cls, credentials: Credentials, currencies: List[str], logger: logging.Logger
     ):
-        telegram_api_key = credentials.get("telegram_api")
+        telegram_api_key = credentials.telegram_api
         wallet_data = cls.grab_current_wallet_status(credentials, logger)
         funding_summary = cls.get_funding_summary(credentials, currencies, logger)
 
@@ -383,12 +363,12 @@ class FundingBot(object):
         for order in orders:
             order_data.append(
                 [
-                    order["Currency"],
-                    order["ID"],
-                    order["Amount"],
-                    f"{round(order['Rate'] * 100, 4)}%",
-                    order["Period"],
-                    order["PositionPair"],
+                    order.currency,
+                    order.id,
+                    order.amount,
+                    f"{round(order.rate * 100, 4)}%",
+                    order.period,
+                    order.position_pair,
                 ]
             )
 

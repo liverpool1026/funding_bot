@@ -3,18 +3,26 @@ import logging
 
 import datetime as dt
 
-from collections import namedtuple
-
 from botocore.exceptions import ClientError
 
-from typing import List, Dict, Optional, TYPE_CHECKING
+from typing import List, Dict, NamedTuple, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
     from funding_bot.configs.base import Configuration
     from funding_bot.bot.funding import ActiveFundingData, ActiveFundingOfferData
 
 
-FUNDING_DATA = namedtuple("FUNDING_DATA", ["Date", "InitialBalance"])
+class FundingData(NamedTuple):
+    date: dt.date
+    initial_balance: float
+
+
+class LendingOffer(NamedTuple):
+    currency: str
+    amount: str
+    rate: float
+    period: int
+
 
 DEFAULT_VALUE = {
     "fUSD": 1000,
@@ -22,10 +30,16 @@ DEFAULT_VALUE = {
     "fETH": 1,
 }
 
+MIN_FUNDING_AMOUNT = {
+    "fUSD": 50,
+    "fETH": 0.5,
+    "fBTC": 0.01,
+}
+
 
 def get_initial_start_data(
     currency: str, table_name: str, logger: logging.Logger
-) -> Optional[FUNDING_DATA]:
+) -> Optional[FundingData]:
     aws_context = boto3.resource("dynamodb", region_name="ap-southeast-2")
     try:
         initial_balance_data = aws_context.Table(table_name).get_item(
@@ -35,9 +49,9 @@ def get_initial_start_data(
         logger.debug(f"Failed to fetch balance for {currency}")
         return None
     else:
-        return FUNDING_DATA(
-            Date=dt.datetime.strptime(initial_balance_data["Item"]["Date"], "%m-%d-%Y"),
-            InitialBalance=float(initial_balance_data["Item"]["InitialBalance"]),
+        return FundingData(
+            date=dt.datetime.strptime(initial_balance_data["Item"]["Date"], "%m-%d-%Y").date(),
+            initial_balance=float(initial_balance_data["Item"]["InitialBalance"]),
         )
 
 
@@ -58,13 +72,13 @@ class Account(object):
             currency: get_initial_start_data(
                 currency, configuration.get_dynamodb_table_name(), logger
             )
-            or FUNDING_DATA(
-                Date=dt.datetime.now().date(), InitialBalance=DEFAULT_VALUE[currency]
+            or FundingData(
+                date=dt.datetime.now().date(), initial_balance=DEFAULT_VALUE[currency]
             )
             for currency in configuration.get_funding_currencies()
         }
 
-    def get_initial_balance(self, currency: str) -> FUNDING_DATA:
+    def get_initial_balance(self, currency: str) -> FundingData:
         return self._initial_balance[currency]
 
     def get_minimum_daily_lending_rate(self, currency: str) -> float:
@@ -94,14 +108,14 @@ class Account(object):
     def _repopulate_lending_amount(self):
         self._current_lend_amount = sum(
             [
-                active_funding["Amount"]
+                active_funding.amount
                 for active_funding in self.get_active_funding_data()
             ]
         )
 
     def _repopulate_pending_amount(self):
         self._current_pending_amount = sum(
-            [pending_offer["Amount"] for pending_offer in self.get_pending_funding()]
+            [pending_offer.amount for pending_offer in self.get_pending_funding()]
         )
 
     def get_available_fundings(self) -> Dict[str, float]:
@@ -125,3 +139,33 @@ class Account(object):
 
     def update_available_funding(self, currency: str, amount: float):
         self._available_fundings[currency] = amount
+
+    def generate_lending_offer(self, currency: str, offer_rate: float) -> Optional[LendingOffer]:
+        if self.get_funding_for_offer(currency) >= MIN_FUNDING_AMOUNT[currency]:
+            days = 2
+            if offer_rate * 36500 > 30:
+                days = 30
+            elif offer_rate * 36500 > 25:
+                days = 20
+            elif offer_rate * 36500 > 20:
+                days = 10
+            elif offer_rate * 36500 > 15:
+                days = 5
+
+            amount = self.get_funding_for_offer(currency)
+
+            if amount / MIN_FUNDING_AMOUNT[currency] > 2 and offer_rate * 36500 < 15:
+                amount = MIN_FUNDING_AMOUNT[currency]
+
+            amount = ("%.6f" % abs(amount))[
+                     :-1
+                     ]  # Truncate at 5th decimal places to avoid rounding error
+
+            return LendingOffer(
+                currency=currency,
+                amount=amount,
+                rate=offer_rate,
+                period=days,
+            )
+
+        return None

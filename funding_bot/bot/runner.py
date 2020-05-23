@@ -81,6 +81,7 @@ def runner(logger: logging.Logger):
                     currency,
                     rate_tracker.get_latest_rate_data(),
                     available_funding,
+                    funding_data_tracker.get_minimum_daily_lending_rate(currency)
                     logger,
                 )
 

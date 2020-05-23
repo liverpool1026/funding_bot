@@ -195,6 +195,7 @@ class FundingBot(object):
         currency: str,
         rate_data: "RATE_DATA",
         amount: Union[int, float],
+        minimum_lending_rate: float,
         logger: logging.Logger,
     ) -> int:
         end_point = "v2/auth/w/funding/offer/submit"
@@ -216,6 +217,14 @@ class FundingBot(object):
             cls.send_telegram_notification(
                 telegram_api_key,
                 f"Cannot submit order with {offer_rate} offer rate, abort",
+            )
+            return
+
+        if offer_rate * 365 * 100 < minimum_lending_rate:
+            logger.info(f"Cannot submit order with {offer_rate} offer rate, as the offered rate is smaller than the allowed minimum lending rate\n")
+            cls.send_telegram_notification(
+                telegram_api_key,
+                f"Cannot submit order with {offer_rate} offer rate, as the offered rate is smaller than the allowed minimum lending rate\n"
             )
             return
 
@@ -377,7 +386,7 @@ class FundingBot(object):
                     order["Currency"],
                     order["ID"],
                     order["Amount"],
-                    f"{round(order['Rate'] * 10000, 4)}%",
+                    f"{round(order['Rate'] * 100, 4)}%",
                     order["Period"],
                     order["PositionPair"],
                 ]

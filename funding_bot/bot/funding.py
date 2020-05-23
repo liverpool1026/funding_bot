@@ -198,10 +198,12 @@ class FundingBot(object):
             return
 
         if offer_rate * 365 * 100 < minimum_lending_rate:
-            logger.info(f"Cannot submit order with {offer_rate} offer rate, as the offered rate is smaller than the allowed minimum lending rate\n")
+            logger.info(
+                f"Cannot submit order with {offer_rate} offer rate, as the offered rate is smaller than the allowed minimum lending rate\n"
+            )
             cls.send_telegram_notification(
                 telegram_api_key,
-                f"Cannot submit order with {offer_rate} offer rate, as the offered rate is smaller than the allowed minimum lending rate\n"
+                f"Cannot submit order with {offer_rate} offer rate, as the offered rate is smaller than the allowed minimum lending rate\n",
             )
             return
 
@@ -258,7 +260,7 @@ class FundingBot(object):
 
     @classmethod
     def get_funding_offer_history(
-            cls, credentials: Credentials, currency: str, logger: logging.Logger
+        cls, credentials: Credentials, currency: str, logger: logging.Logger
     ) -> Dict[str, str]:
         end_point = f"v2/auth/r/funding/offers/{currency}/hist"
 

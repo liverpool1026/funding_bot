@@ -59,7 +59,9 @@ def runner(logger: logging.Logger):
                     credentials=credentials, currency=currency, logger=logger,
                 ),
             )
-            funding_offer = funding_data_tracker.generate_lending_offer(currency, rate_tracker.determine_offer_rate())
+            funding_offer = funding_data_tracker.generate_lending_offer(
+                currency, rate_tracker.determine_offer_rate()
+            )
             if funding_offer:
                 bot.send_telegram_notification(
                     telegram_api_key,
@@ -93,7 +95,9 @@ def runner(logger: logging.Logger):
                         credentials, currency, logger
                     )
                 ]
-                historic_offer = bot.get_funding_offer_history(credentials, currency, logger)
+                historic_offer = bot.get_funding_offer_history(
+                    credentials, currency, logger
+                )
 
                 for order in submitted_orders[currency]:
                     order_status = historic_offer.get(order, None)

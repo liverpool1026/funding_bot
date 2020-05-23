@@ -29,7 +29,14 @@ class Tracker(object):
         self._currency = currency
         self._rate_data: List[RateData] = []
         self._current_rate_data: RateData = RateData(
-            flash_return_rate=0.0, bid=0.0, ask=0.0, last=0.0, high=0.0, low=0.0, bid_period=0, ask_period=0
+            flash_return_rate=0.0,
+            bid=0.0,
+            ask=0.0,
+            last=0.0,
+            high=0.0,
+            low=0.0,
+            bid_period=0,
+            ask_period=0,
         )
         self._candle_data: CandleData = CandleData(high=0, low=0, open=0, close=0)
 
@@ -67,10 +74,7 @@ class Tracker(object):
 
             if value:
                 self._candle_data = CandleData(
-                    open=value[1],
-                    close=value[2],
-                    high=value[3],
-                    low=value[4],
+                    open=value[1], close=value[2], high=value[3], low=value[4],
                 )
 
     def get_latest_rate_data(self) -> RateData:
@@ -110,5 +114,3 @@ class Tracker(object):
         rate_data: RateData = self.get_latest_rate_data()
 
         return candle_data.high * 0.98  # Return the high in the 5 minutes
-
-

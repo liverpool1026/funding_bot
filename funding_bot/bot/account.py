@@ -50,7 +50,9 @@ def get_initial_start_data(
         return None
     else:
         return FundingData(
-            date=dt.datetime.strptime(initial_balance_data["Item"]["Date"], "%m-%d-%Y").date(),
+            date=dt.datetime.strptime(
+                initial_balance_data["Item"]["Date"], "%m-%d-%Y"
+            ).date(),
             initial_balance=float(initial_balance_data["Item"]["InitialBalance"]),
         )
 
@@ -107,10 +109,7 @@ class Account(object):
 
     def _repopulate_lending_amount(self):
         self._current_lend_amount = sum(
-            [
-                active_funding.amount
-                for active_funding in self.get_active_funding_data()
-            ]
+            [active_funding.amount for active_funding in self.get_active_funding_data()]
         )
 
     def _repopulate_pending_amount(self):
@@ -140,7 +139,9 @@ class Account(object):
     def update_available_funding(self, currency: str, amount: float):
         self._available_fundings[currency] = amount
 
-    def generate_lending_offer(self, currency: str, offer_rate: float) -> Optional[LendingOffer]:
+    def generate_lending_offer(
+        self, currency: str, offer_rate: float
+    ) -> Optional[LendingOffer]:
         if self.get_funding_for_offer(currency) >= MIN_FUNDING_AMOUNT[currency]:
             days = 2
             if offer_rate * 36500 > 30:
@@ -158,14 +159,11 @@ class Account(object):
                 amount = MIN_FUNDING_AMOUNT[currency]
 
             amount = ("%.6f" % abs(amount))[
-                     :-1
-                     ]  # Truncate at 5th decimal places to avoid rounding error
+                :-1
+            ]  # Truncate at 5th decimal places to avoid rounding error
 
             return LendingOffer(
-                currency=currency,
-                amount=amount,
-                rate=offer_rate,
-                period=days,
+                currency=currency, amount=amount, rate=offer_rate, period=days,
             )
 
         return None

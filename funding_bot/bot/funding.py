@@ -14,7 +14,7 @@ if TYPE_CHECKING:
 
 Header = TypedDict(
     "Header",
-    {"bfx-nonce": str, "bfx-apikey": str, "bfx-signature": str, "context-type": str},
+    {"bfx-nonce": str, "bfx-apikey": str, "bfx-signature": str, "content-type": str},
 )
 
 
@@ -119,6 +119,7 @@ class FundingBot(object):
         if data:
             data = [row[:3] for row in data]
             return tabulate.tabulate(data, headers=["Type", "Currency", "Amount"])
+        return None
 
     @classmethod
     def get_currency_balance(
@@ -157,7 +158,7 @@ class FundingBot(object):
     @classmethod
     def get_funding_summary(
         cls, credentials: Credentials, currencies: List[str], logger: logging.Logger
-    ) -> str:
+    ) -> Optional[str]:
         data_entry = []
         for currency in currencies:
             end_point = f"v2/auth/r/info/funding/{currency}"
@@ -174,6 +175,7 @@ class FundingBot(object):
             return tabulate.tabulate(
                 data_entry, headers=["Currency", "Lending Rates", "Duration"]
             )
+        return None
 
     @classmethod
     def submit_funding_offer(
@@ -183,7 +185,7 @@ class FundingBot(object):
         lending_data: "LendingOffer",
         minimum_lending_rate: float,
         logger: logging.Logger,
-    ) -> int:
+    ) -> Optional[int]:
         end_point = "v2/auth/w/funding/offer/submit"
         telegram_api_key = credentials.telegram_api
         offer_rate = lending_data.rate
@@ -195,7 +197,7 @@ class FundingBot(object):
                 telegram_api_key,
                 f"Cannot submit order with {offer_rate} offer rate, abort",
             )
-            return
+            return None
 
         if offer_rate * 365 * 100 < minimum_lending_rate:
             logger.info(
@@ -205,16 +207,16 @@ class FundingBot(object):
                 telegram_api_key,
                 f"Cannot submit order with {offer_rate} offer rate, as the offered rate is smaller than the allowed minimum lending rate\n",
             )
-            return
+            return None
 
-        body: FundingOrderData = FundingOrderData(
-            type="LIMIT",
-            symbol=currency,
-            amount=lending_data.amount,
-            rate=str(offer_rate),
-            period=days,
-            flags=0,
-        )
+        body: Dict = {
+            "type": "LIMIT",
+            "symbol": currency,
+            "amount": lending_data.amount,
+            "rate": str(offer_rate),
+            "period": days,
+            "flags": 0,
+        }
 
         header: Header = cls.generate_headers(credentials, end_point, body)
 
@@ -227,6 +229,8 @@ class FundingBot(object):
             )
 
             return data[4][0]  # Returns Offer ID
+
+        return None
 
     @classmethod
     def get_active_funding_data(
@@ -271,7 +275,7 @@ class FundingBot(object):
         data = cls.send_api_request(end_point, header, body, logger)
 
         if data:
-            return {offer[0]: offer[10] for offer in data}
+            return {str(offer[0]): offer[10] for offer in data}
         return dict()
 
     @classmethod
@@ -384,5 +388,6 @@ class FundingBot(object):
 
 
 __all__ = [
-    FundingBot,
+    "FundingBot",
+    "Credentials",
 ]

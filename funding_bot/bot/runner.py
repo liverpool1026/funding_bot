@@ -10,7 +10,7 @@ from funding_bot.bot.funding import FundingBot, Credentials
 from funding_bot.bot.tracker import Tracker
 from funding_bot.bot.account import Account, FundingData
 
-from typing import Dict
+from typing import Dict, List
 
 
 def get_runtime(start_time: float) -> str:
@@ -87,28 +87,22 @@ def runner(logger: logging.Logger):
                         f"Failed to submit {currency} order for {funding_offer.amount}",
                     )
 
-            order_successfully_executed = []
+            order_successfully_executed: List[str] = []
             if submitted_orders[currency]:
-                active_order_id = [
-                    order.id
-                    for order in bot.get_active_funding_offer_data(
-                        credentials, currency, logger
-                    )
-                ]
                 historic_offer = bot.get_funding_offer_history(
                     credentials, currency, logger
                 )
 
-                for order in submitted_orders[currency]:
-                    order_status = historic_offer.get(order, None)
+                for order_id in submitted_orders[currency]:
+                    order_status = historic_offer.get(order_id, None)
                     if order_status:
-                        message = f"Order: {order} {order_status}"
+                        message = f"Order: {order_id} {order_status}"
                         bot.send_telegram_notification(telegram_api_key, message)
                         logger.info(message)
-                        order_successfully_executed.append(order)
+                        order_successfully_executed.append(order_id)
 
-            for order in order_successfully_executed:
-                del submitted_orders[currency][order]
+            for order_id in order_successfully_executed:
+                del submitted_orders[currency][order_id]
 
             order_successfully_deleted = []
             for submitted_order_id, submitted_time in submitted_orders[
@@ -129,7 +123,10 @@ def runner(logger: logging.Logger):
 
         if int((dt.datetime.now().timestamp() - start_time) / 3600) != run_hours:
             run_hours = int((dt.datetime.now().timestamp() - start_time) / 3600)
-            message: str = f"Summary Report @ {dt.datetime.now().date()}\n" f"Runtime: {get_runtime(start_time)}\n"
+            message = (
+                f"Summary Report @ {dt.datetime.now().date()}\n"
+                f"Runtime: {get_runtime(start_time)}\n"
+            )
 
             for currency in funding_currencies:
                 current_balance: float = bot.get_currency_balance(

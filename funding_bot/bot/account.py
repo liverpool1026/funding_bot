@@ -38,23 +38,25 @@ MIN_FUNDING_AMOUNT = {
 
 
 def get_initial_start_data(
-    currency: str, table_name: str, logger: logging.Logger
+    currency: str, table_name: Optional[str], logger: logging.Logger
 ) -> Optional[FundingData]:
-    aws_context = boto3.resource("dynamodb", region_name="ap-southeast-2")
-    try:
-        initial_balance_data = aws_context.Table(table_name).get_item(
-            Key={"Key": currency}
-        )
-    except ClientError as e:
-        logger.debug(f"Failed to fetch balance for {currency}")
-        return None
-    else:
-        return FundingData(
-            date=dt.datetime.strptime(
-                initial_balance_data["Item"]["Date"], "%m-%d-%Y"
-            ).date(),
-            initial_balance=float(initial_balance_data["Item"]["InitialBalance"]),
-        )
+    if table_name:
+        aws_context = boto3.resource("dynamodb", region_name="ap-southeast-2")
+        try:
+            initial_balance_data = aws_context.Table(table_name).get_item(
+                Key={"Key": currency}
+            )
+        except ClientError as e:
+            logger.debug(f"Failed to fetch balance for {currency}")
+            return None
+        else:
+            return FundingData(
+                date=dt.datetime.strptime(
+                    initial_balance_data["Item"]["Date"], "%m-%d-%Y"
+                ).date(),
+                initial_balance=float(initial_balance_data["Item"]["InitialBalance"]),
+            )
+    return None
 
 
 class Account(object):
@@ -69,7 +71,7 @@ class Account(object):
 
         self._current_lend_amount: float = 0
         self._current_pending_amount: float = 0
-        self._available_fundings = dict()
+        self._available_fundings: Dict[str, float] = dict()
         self._initial_balance = {
             currency: get_initial_start_data(
                 currency, configuration.get_dynamodb_table_name(), logger
@@ -158,12 +160,12 @@ class Account(object):
             if amount / MIN_FUNDING_AMOUNT[currency] > 2 and offer_rate * 36500 < 15:
                 amount = MIN_FUNDING_AMOUNT[currency]
 
-            amount = ("%.6f" % abs(amount))[
+            amount_str = ("%.6f" % abs(amount))[
                 :-1
             ]  # Truncate at 5th decimal places to avoid rounding error
 
             return LendingOffer(
-                currency=currency, amount=amount, rate=offer_rate, period=days,
+                currency=currency, amount=amount_str, rate=offer_rate, period=days,
             )
 
         return None

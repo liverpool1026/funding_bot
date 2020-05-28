@@ -1,10 +1,12 @@
+import os
 import logging
 from funding_bot.bot.runner import runner
 
+dir_path = os.path.dirname(os.path.realpath(__file__))
 
 if __name__ == "__main__":
     logging.basicConfig(
-        filename="log.log",
+        filename=f"{dir_path}/log.log",
         filemode="a",
         level=logging.INFO,
         format="%(asctime)s %(levelname)-8s %(message)s",

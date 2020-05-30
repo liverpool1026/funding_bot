@@ -10,9 +10,5 @@ setup(
     packages=["funding_bot"],
     include_package_data=True,
     install_requires=["requests", "tabulate", "mypy", "boto3", "click"],
-    entry_points={
-        "console_scripts": [
-            "funding_bot=funding_bot.cli:main"
-       ]
-    },
+    entry_points={"console_scripts": ["funding_bot=funding_bot.cli:main"]},
 )

@@ -93,9 +93,13 @@ class Tracker(object):
         rate_data: RateData = self.get_latest_rate_data()
 
         if period == 5:
-            return candle_data[FIVE_MINUTE_PERIOD].high * 0.99  # Return the high in the 5 minutes
+            return (
+                candle_data[FIVE_MINUTE_PERIOD].high * 0.99
+            )  # Return the high in the 5 minutes
         else:
-            return candle_data[THIRTY_MINUTE_PERIOD].high * 0.99  # Return the high in the 30 minutes
+            return (
+                candle_data[THIRTY_MINUTE_PERIOD].high * 0.99
+            )  # Return the high in the 30 minutes
 
     def _update_rates(self, duration: int, period: int, period_key: str):
         response = requests.get(self.get_api())

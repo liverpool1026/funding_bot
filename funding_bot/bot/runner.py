@@ -80,7 +80,10 @@ def runner(logger: logging.Logger):
                 )
 
                 if order:
-                    submitted_orders[currency][str(order)] = dt.datetime.now(), funding_offer.amount
+                    submitted_orders[currency][str(order)] = (
+                        dt.datetime.now(),
+                        funding_offer.amount,
+                    )
                 else:
                     bot.send_telegram_notification(
                         telegram_api_key,
@@ -105,9 +108,11 @@ def runner(logger: logging.Logger):
                 del submitted_orders[currency][order_id]
 
             order_successfully_deleted = []
-            for submitted_order_id, submitted_time, submitted_amount in submitted_orders[
-                currency
-            ].items():
+            for (
+                submitted_order_id,
+                submitted_time,
+                submitted_amount,
+            ) in submitted_orders[currency].items():
                 if dt.datetime.now() - submitted_time > dt.timedelta(hours=1):
                     message = f"Order: {submitted_order_id} yet to be executed"
                     bot.send_telegram_notification(telegram_api_key, message)
@@ -119,7 +124,9 @@ def runner(logger: logging.Logger):
                         order_successfully_deleted.append(submitted_order_id)
 
                         funding_offer = funding_data_tracker.regenerate_lending_offer(
-                            currency, rate_tracker.determine_offer_rate(period=5), submitted_amount
+                            currency,
+                            rate_tracker.determine_offer_rate(period=5),
+                            submitted_amount,
                         )
                         if funding_offer:
                             bot.send_telegram_notification(
@@ -134,12 +141,17 @@ def runner(logger: logging.Logger):
                                 credentials,
                                 currency,
                                 funding_offer,
-                                funding_data_tracker.get_minimum_daily_lending_rate(currency),
+                                funding_data_tracker.get_minimum_daily_lending_rate(
+                                    currency
+                                ),
                                 logger,
                             )
 
                             if order:
-                                submitted_orders[currency][str(order)] = dt.datetime.now(), funding_offer.amount
+                                submitted_orders[currency][str(order)] = (
+                                    dt.datetime.now(),
+                                    funding_offer.amount,
+                                )
                             else:
                                 bot.send_telegram_notification(
                                     telegram_api_key,

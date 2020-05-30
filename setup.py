@@ -9,5 +9,10 @@ setup(
     author_email="liverpool1026.bne@gmail.com",
     packages=["funding_bot"],
     include_package_data=True,
-    install_requires=["requests", "tabulate", "mypy", "boto3"],
+    install_requires=["requests", "tabulate", "mypy", "boto3", "click"],
+    entry_points={
+        "console_scripts": [
+            "funding_bot=funding_bot.cli:main"
+       ]
+    },
 )

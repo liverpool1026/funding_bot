@@ -10,7 +10,7 @@ from funding_bot.bot.funding import FundingBot, Credentials
 from funding_bot.bot.tracker import Tracker
 from funding_bot.bot.account import Account, FundingData
 
-from typing import Dict, List
+from typing import Dict, List, Tuple
 
 
 def get_runtime(start_time: float) -> str:
@@ -32,7 +32,7 @@ def runner(logger: logging.Logger):
     )
     telegram_api_key = AccountConfiguration.get_telegram_api()
     rate_trackers: Dict[str, Tracker] = dict()
-    submitted_orders: Dict[str, Dict[str, dt.datetime]] = defaultdict(dict)
+    submitted_orders: Dict[str, Dict[str, Tuple[dt.datetime, str]]] = defaultdict(dict)
 
     funding_currencies = AccountConfiguration.get_funding_currencies()
 
@@ -60,7 +60,7 @@ def runner(logger: logging.Logger):
                 ),
             )
             funding_offer = funding_data_tracker.generate_lending_offer(
-                currency, rate_tracker.determine_offer_rate()
+                currency, rate_tracker.determine_offer_rate(period=30)
             )
             if funding_offer:
                 bot.send_telegram_notification(
@@ -80,7 +80,7 @@ def runner(logger: logging.Logger):
                 )
 
                 if order:
-                    submitted_orders[currency][str(order)] = dt.datetime.now()
+                    submitted_orders[currency][str(order)] = dt.datetime.now(), funding_offer.amount
                 else:
                     bot.send_telegram_notification(
                         telegram_api_key,
@@ -105,7 +105,7 @@ def runner(logger: logging.Logger):
                 del submitted_orders[currency][order_id]
 
             order_successfully_deleted = []
-            for submitted_order_id, submitted_time in submitted_orders[
+            for submitted_order_id, submitted_time, submitted_amount in submitted_orders[
                 currency
             ].items():
                 if dt.datetime.now() - submitted_time > dt.timedelta(hours=1):
@@ -117,6 +117,34 @@ def runner(logger: logging.Logger):
                         credentials, submitted_order_id, logger
                     ):
                         order_successfully_deleted.append(submitted_order_id)
+
+                        funding_offer = funding_data_tracker.regenerate_lending_offer(
+                            currency, rate_tracker.determine_offer_rate(period=5), submitted_amount
+                        )
+                        if funding_offer:
+                            bot.send_telegram_notification(
+                                telegram_api_key,
+                                f"{currency} Resubmit offer: {funding_offer.amount}",
+                            )
+                            logger.info(
+                                f"{currency} Resubmit offer: {funding_offer.amount}"
+                            )
+
+                            order = bot.submit_funding_offer(
+                                credentials,
+                                currency,
+                                funding_offer,
+                                funding_data_tracker.get_minimum_daily_lending_rate(currency),
+                                logger,
+                            )
+
+                            if order:
+                                submitted_orders[currency][str(order)] = dt.datetime.now(), funding_offer.amount
+                            else:
+                                bot.send_telegram_notification(
+                                    telegram_api_key,
+                                    f"Failed to submit {currency} order for {funding_offer.amount}",
+                                )
 
             for order_id in order_successfully_deleted:
                 del submitted_orders[currency][order_id]

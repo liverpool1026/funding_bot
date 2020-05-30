@@ -2,7 +2,10 @@ import json
 import logging
 import requests
 
-from typing import List, NamedTuple
+from typing import Dict, List, NamedTuple
+
+FIVE_MINUTE_PERIOD = "5mins"
+THIRTY_MINUTE_PERIOD = "30mins"
 
 
 class RateData(NamedTuple):
@@ -38,7 +41,10 @@ class Tracker(object):
             bid_period=0,
             ask_period=0,
         )
-        self._candle_data: CandleData = CandleData(high=0, low=0, open=0, close=0)
+        self._candle_data: Dict[str, CandleData] = {
+            FIVE_MINUTE_PERIOD: CandleData(high=0, low=0, open=0, close=0),
+            THIRTY_MINUTE_PERIOD: CandleData(high=0, low=0, open=0, close=0),
+        }
 
     def get_api(self) -> str:
         return f"https://api-pub.bitfinex.com/v2/tickers?symbols={self._currency}"
@@ -47,40 +53,13 @@ class Tracker(object):
         return f"https://api-pub.bitfinex.com/v2/candles/trade:{duration}m:{self._currency}:p{period}/last"
 
     def update_rates(self):
-        response = requests.get(self.get_api())
-        if response.status_code == 200:
-            value = json.loads(response.content.decode())
-
-            self._rate_data.append(
-                RateData(
-                    flash_return_rate=value[0][1],
-                    bid=value[0][2],
-                    bid_period=value[0][3],
-                    ask=value[0][5],
-                    ask_period=value[0][6],
-                    last=value[0][10],
-                    high=value[0][12],
-                    low=value[0][13],
-                )
-            )
-
-            if len(self._rate_data) == 15:
-                self.aggregate_rate_data()
-
-        # Update candle data
-        response = requests.get(self.get_candle_api(duration=5, period=2))
-        if response.status_code == 200:
-            value = json.loads(response.content.decode())
-
-            if value:
-                self._candle_data = CandleData(
-                    open=value[1], close=value[2], high=value[3], low=value[4],
-                )
+        self._update_rates(duration=5, period=2, period_key=FIVE_MINUTE_PERIOD)
+        self._update_rates(duration=30, period=2, period_key=THIRTY_MINUTE_PERIOD)
 
     def get_latest_rate_data(self) -> RateData:
         return self._current_rate_data
 
-    def get_candle_data(self) -> CandleData:
+    def get_candle_data(self) -> Dict[str, CandleData]:
         return self._candle_data
 
     def aggregate_rate_data(self):
@@ -108,9 +87,44 @@ class Tracker(object):
             f"Low: {self._current_rate_data.low}"
         )
 
-    def determine_offer_rate(self) -> float:
+    def determine_offer_rate(self, period: int = 30) -> float:
         # Determines lending offer rate
-        candle_data: CandleData = self.get_candle_data()
+        candle_data: Dict[str, CandleData] = self.get_candle_data()
         rate_data: RateData = self.get_latest_rate_data()
 
-        return candle_data.high * 0.98  # Return the high in the 5 minutes
+        if period == 5:
+            return candle_data[FIVE_MINUTE_PERIOD].high * 0.99  # Return the high in the 5 minutes
+        else:
+            return candle_data[THIRTY_MINUTE_PERIOD].high * 0.99  # Return the high in the 30 minutes
+
+    def _update_rates(self, duration: int, period: int, period_key: str):
+        response = requests.get(self.get_api())
+        if response.status_code == 200:
+            value = json.loads(response.content.decode())
+
+            self._rate_data.append(
+                RateData(
+                    flash_return_rate=value[0][1],
+                    bid=value[0][2],
+                    bid_period=value[0][3],
+                    ask=value[0][5],
+                    ask_period=value[0][6],
+                    last=value[0][10],
+                    high=value[0][12],
+                    low=value[0][13],
+                )
+            )
+
+            if len(self._rate_data) == 15:
+                self.aggregate_rate_data()
+
+        # Update candle data
+        response = requests.get(self.get_candle_api(duration=duration, period=period))
+        if response.status_code == 200:
+            value = json.loads(response.content.decode())
+
+            if value and len(value) > 5:
+                candle_data = CandleData(
+                    open=value[1], close=value[2], high=value[3], low=value[4],
+                )
+                self._candle_data[period_key] = candle_data

@@ -169,3 +169,32 @@ class Account(object):
             )
 
         return None
+
+    def regenerate_lending_offer(
+            self, currency: str, offer_rate: float, funding_amount: str
+    ) -> Optional[LendingOffer]:
+        if float(funding_amount) >= MIN_FUNDING_AMOUNT[currency]:
+            days = 2
+            if offer_rate * 36500 > 30:
+                days = 30
+            elif offer_rate * 36500 > 25:
+                days = 20
+            elif offer_rate * 36500 > 20:
+                days = 10
+            elif offer_rate * 36500 > 15:
+                days = 5
+
+            amount = float(funding_amount)
+
+            if amount / MIN_FUNDING_AMOUNT[currency] > 2 and offer_rate * 36500 < 15:
+                amount = MIN_FUNDING_AMOUNT[currency]
+
+            amount_str = ("%.6f" % abs(amount))[
+                         :-1
+                         ]  # Truncate at 5th decimal places to avoid rounding error
+
+            return LendingOffer(
+                currency=currency, amount=amount_str, rate=offer_rate, period=days,
+            )
+
+        return None

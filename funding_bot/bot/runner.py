@@ -108,11 +108,10 @@ def runner(logger: logging.Logger):
                 del submitted_orders[currency][order_id]
 
             order_successfully_deleted = []
-            for (
-                submitted_order_id,
-                submitted_time,
-                submitted_amount,
-            ) in submitted_orders[currency].items():
+            for (submitted_order_id, submitted_data,) in submitted_orders[
+                currency
+            ].items():
+                submitted_time, submitted_amount = submitted_data
                 if dt.datetime.now() - submitted_time > dt.timedelta(hours=1):
                     message = f"Order: {submitted_order_id} yet to be executed"
                     bot.send_telegram_notification(telegram_api_key, message)

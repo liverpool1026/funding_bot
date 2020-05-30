@@ -14,6 +14,8 @@ def cli():
     funding_bot = click.style("funding_bot", fg="cyan", bold=True)
     version = pkg_resources.get_distribution('funding_bot').version
     click.echo(funding_bot + " " + version)
+    click.echo("Funding Bot that supports Bitfinex Margin Funding")
+    click.echo("Currently supports USD, BTC, ETH")
 
 
 @click.command()

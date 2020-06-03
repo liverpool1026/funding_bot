@@ -149,7 +149,10 @@ def runner(logger: logging.Logger):
 
                             if order:
                                 order_successfully_resubmitted.append(
-                                    (str(order), (dt.datetime.now(), funding_offer.amount))
+                                    (
+                                        str(order),
+                                        (dt.datetime.now(), funding_offer.amount),
+                                    )
                                 )
                             else:
                                 bot.send_telegram_notification(

@@ -12,7 +12,7 @@ Install
 ```
 git clone https://github.com/liverpool1026/funding_bot
 cd funding_bot
-pip install -e .  (Requz`ires python3.6)
+pip install -e .  (Requires python3.6)
 ```
 
 Config Setting

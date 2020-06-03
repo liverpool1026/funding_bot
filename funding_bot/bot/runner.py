@@ -108,6 +108,7 @@ def runner(logger: logging.Logger):
                 del submitted_orders[currency][order_id]
 
             order_successfully_deleted = []
+            order_successfully_resubmitted = []
             for (submitted_order_id, submitted_data,) in submitted_orders[
                 currency
             ].items():
@@ -147,9 +148,8 @@ def runner(logger: logging.Logger):
                             )
 
                             if order:
-                                submitted_orders[currency][str(order)] = (
-                                    dt.datetime.now(),
-                                    funding_offer.amount,
+                                order_successfully_resubmitted.append(
+                                    (str(order), (dt.datetime.now(), funding_offer.amount))
                                 )
                             else:
                                 bot.send_telegram_notification(
@@ -159,6 +159,9 @@ def runner(logger: logging.Logger):
 
             for order_id in order_successfully_deleted:
                 del submitted_orders[currency][order_id]
+
+            for order_id, order_data in order_successfully_resubmitted:
+                submitted_orders[currency][order_id] = order_data
 
         if int((dt.datetime.now().timestamp() - start_time) / 3600) != run_hours:
             run_hours = int((dt.datetime.now().timestamp() - start_time) / 3600)

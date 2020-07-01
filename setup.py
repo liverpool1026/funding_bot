@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name="funding_bot",
-    version="2.0.2",
+    version="2.0.3",
     description="Handle automatic funding on Bitfinex",
     url="https://github.com/liverpool1026/funding_bot",
     author="Kevin Hwa",

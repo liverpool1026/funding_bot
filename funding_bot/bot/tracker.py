@@ -106,18 +106,19 @@ class Tracker(object):
         if response.status_code == 200:
             value = json.loads(response.content.decode())
 
-            self._rate_data.append(
-                RateData(
-                    flash_return_rate=value[0][1],
-                    bid=value[0][2],
-                    bid_period=value[0][3],
-                    ask=value[0][5],
-                    ask_period=value[0][6],
-                    last=value[0][10],
-                    high=value[0][12],
-                    low=value[0][13],
+            if len(value) and len(value[0]) > 14:
+                self._rate_data.append(
+                    RateData(
+                        flash_return_rate=value[0][1],
+                        bid=value[0][2],
+                        bid_period=value[0][3],
+                        ask=value[0][5],
+                        ask_period=value[0][6],
+                        last=value[0][10],
+                        high=value[0][12],
+                        low=value[0][13],
+                    )
                 )
-            )
 
             if len(self._rate_data) == 15:
                 self.aggregate_rate_data()

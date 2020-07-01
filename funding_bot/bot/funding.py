@@ -17,6 +17,8 @@ Header = TypedDict(
     {"bfx-nonce": str, "bfx-apikey": str, "bfx-signature": str, "content-type": str},
 )
 
+message_queue: List[str] = []
+
 
 class Credentials(NamedTuple):
     api_key: str
@@ -339,7 +341,22 @@ class FundingBot(object):
     @classmethod
     def send_telegram_notification(cls, telegram_api_key: Optional[str], msg: str):
         if telegram_api_key:
-            requests.get(f"{telegram_api_key}{msg}")
+            try:
+                requests.get(f"{telegram_api_key}{msg}")
+            except requests.exceptions.ConnectionError:
+                global message_queue
+                message_queue.append(msg)
+
+    @classmethod
+    def resend_any_failed_messaged(cls, telegram_api_key: Optional[str]):
+        if telegram_api_key:
+            global message_queue
+
+            message_to_resend = [msg for msg in message_queue]
+            message_queue = []
+
+            for msg in message_to_resend:
+                cls.send_telegram_notification(telegram_api_key, msg)
 
     @classmethod
     def generate_report(

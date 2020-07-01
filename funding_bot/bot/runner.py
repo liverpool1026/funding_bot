@@ -167,6 +167,7 @@ def runner(logger: logging.Logger):
                 submitted_orders[currency][order_id] = order_data
 
         if int((dt.datetime.now().timestamp() - start_time) / 3600) != run_hours:
+            bot.resend_any_failed_messaged(telegram_api_key)
             run_hours = int((dt.datetime.now().timestamp() - start_time) / 3600)
             message = (
                 f"Summary Report @ {dt.datetime.now().date()}\n"

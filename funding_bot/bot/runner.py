@@ -197,7 +197,8 @@ def runner(logger: logging.Logger):
                 message += f"Start Date: {initial_balance_data.date}\n"
                 message += f"Current Balance: {current_balance}\n"
                 message += f"Gain: {gain} {currency[1:]}\n"
-                message += f"ROI: {round(roi * 100, 2)} %\n"
+                message += f"ROI: {round(gain / initial_balance_data.initial_balance * 100, 2)} %\n"
+                message += f"Annualised ROI: {round(roi * 100, 2)} %\n"
 
             bot.send_telegram_notification(telegram_api_key, message)
             logger.info(message)

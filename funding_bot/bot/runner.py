@@ -1,5 +1,6 @@
 import time
 import logging
+import sentry_sdk
 
 import datetime as dt
 
@@ -20,7 +21,15 @@ def get_runtime(start_time: float) -> str:
     return str(dt.timedelta(hours=hours, minutes=minutes, seconds=seconds))
 
 
+def start_sentry_integration():
+    if AccountConfiguration.get_sentry_dsn():
+        sentry_sdk.init(
+            AccountConfiguration.get_sentry_dsn()
+        )
+
+
 def runner(logger: logging.Logger):
+    start_sentry_integration()
     start_time = dt.datetime.now().timestamp()
     run_hours = 0
     bot = FundingBot

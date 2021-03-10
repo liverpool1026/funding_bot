@@ -2,7 +2,7 @@
 
 A funding bot written in python3.6 that can automatically lend out money and earn interest on Bitfinex.
 
-Achieved an average annualised ROI over 294 days (17-05-2020 ~ 06-03-2021):
+Annualised ROI over 294 days (17-05-2020 ~ 06-03-2021):
 - USD : 16.74%
 - ETH : 2.27%
 

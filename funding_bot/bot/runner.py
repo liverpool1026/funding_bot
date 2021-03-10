@@ -23,9 +23,7 @@ def get_runtime(start_time: float) -> str:
 
 def start_sentry_integration():
     if AccountConfiguration.get_sentry_dsn():
-        sentry_sdk.init(
-            AccountConfiguration.get_sentry_dsn()
-        )
+        sentry_sdk.init(AccountConfiguration.get_sentry_dsn(), traces_sample_rate=1.0)
 
 
 def runner(logger: logging.Logger):

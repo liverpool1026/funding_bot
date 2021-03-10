@@ -52,6 +52,10 @@ class Configuration(object):
         # CURRENCIES = ["fUSD", "fETH", "fBTC"]
         raise NotImplementedError
 
+    @classmethod
+    def get_sentry_dsn(cls) -> Optional[str]:
+        return None
+
 
 __all__ = [
     "Configuration",

@@ -34,6 +34,10 @@ class AccountConfiguration(Configuration):
     def get_maximum_lending_amount(cls) -> Dict[str, int]:
         return {}
 
+    @classmethod
+    def get_sentry_dsn(cls) -> Optional[str]:
+        return None
+
 
 __all__ = [
     "AccountConfiguration",

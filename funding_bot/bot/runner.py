@@ -31,13 +31,20 @@ def runner(logger: logging.Logger):
     start_time = dt.datetime.now().timestamp()
     run_hours = 0
     bot = FundingBot
+
+    telegram_api_key = AccountConfiguration.get_telegram_api()
+    bot.send_telegram_notification(
+        telegram_api_key,
+        "Funding Bot Starting..."
+    )
+
     funding_data_tracker = Account(AccountConfiguration(), logger)
     credentials = Credentials(
         api_key=AccountConfiguration.get_api_key(),
         api_secret_key=AccountConfiguration.get_api_secret_key(),
         telegram_api=AccountConfiguration.get_telegram_api(),
     )
-    telegram_api_key = AccountConfiguration.get_telegram_api()
+
     rate_trackers: Dict[str, Tracker] = dict()
     submitted_orders: Dict[str, Dict[str, Tuple[dt.datetime, str]]] = defaultdict(dict)
 

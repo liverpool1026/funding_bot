@@ -19,6 +19,10 @@ class AccountConfiguration(Configuration):
         return None
 
     @classmethod
+    def get_dynamodb_table_name(cls) -> Optional[str]:
+        return None
+
+    @classmethod
     def get_telegram_api_key(cls) -> Optional[str]:
         return None
 

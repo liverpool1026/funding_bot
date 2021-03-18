@@ -1,13 +1,18 @@
-from typing import Optional, List, Dict
+from typing import Optional, List, Dict, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    import datetime as dt
 
 
 class Configuration(object):
     @classmethod
     def get_api_key(cls) -> str:
+        # Bitfinex API Key
         raise NotImplementedError
 
     @classmethod
     def get_api_secret_key(cls) -> str:
+        # Bitfinex API Secret Key
         raise NotImplementedError
 
     @classmethod
@@ -20,6 +25,17 @@ class Configuration(object):
 
     @classmethod
     def get_dynamodb_table_name(cls) -> Optional[str]:
+        return None
+
+    @classmethod
+    def get_initial_balance(cls) -> Dict[str, float]:
+        # Must be supplied unless dynamodb is setup to contain the initial balance info
+        return {}
+
+    @classmethod
+    def get_funding_start_date(cls) -> Optional["dt.date"]:
+        # Must be supplied unless dynamodb is setup to contain the initial balance info
+        # The dict key must be what is returned from `get_funding_currencies`
         return None
 
     @classmethod

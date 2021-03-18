@@ -33,10 +33,7 @@ def runner(logger: logging.Logger):
     bot = FundingBot
 
     telegram_api_key = AccountConfiguration.get_telegram_api()
-    bot.send_telegram_notification(
-        telegram_api_key,
-        "Funding Bot Starting..."
-    )
+    bot.send_telegram_notification(telegram_api_key, "Funding Bot Starting...")
 
     funding_data_tracker = Account(AccountConfiguration(), logger)
     credentials = Credentials(

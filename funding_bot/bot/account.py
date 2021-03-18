@@ -3,7 +3,7 @@ import logging
 
 import datetime as dt
 
-from botocore.exceptions import ClientError
+from botocore.exceptions import ClientError, NoCredentialsError
 
 from typing import List, Dict, NamedTuple, Optional, TYPE_CHECKING
 
@@ -46,16 +46,20 @@ def get_initial_start_data(
             initial_balance_data = aws_context.Table(table_name).get_item(
                 Key={"Key": currency}
             )
-        except ClientError as e:
-            logger.debug(f"Failed to fetch balance for {currency}")
-            return None
-        else:
+
             return FundingData(
                 date=dt.datetime.strptime(
                     initial_balance_data["Item"]["Date"], "%m-%d-%Y"
                 ).date(),
                 initial_balance=float(initial_balance_data["Item"]["InitialBalance"]),
             )
+        except ClientError as e:
+            logger.debug(f"Failed to fetch balance for {currency}")
+            return None
+        except NoCredentialsError:
+            logger.debug("No AWS Credential Setup")
+            return None
+
     return None
 
 
@@ -77,7 +81,8 @@ class Account(object):
                 currency, configuration.get_dynamodb_table_name(), logger
             )
             or FundingData(
-                date=dt.datetime.now().date(), initial_balance=DEFAULT_VALUE[currency]
+                date=configuration.get_funding_start_date(),
+                initial_balance=configuration.get_initial_balance()[currency],
             )
             for currency in configuration.get_funding_currencies()
         }

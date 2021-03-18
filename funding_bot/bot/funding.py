@@ -153,7 +153,7 @@ class FundingBot(object):
 
         if data:
             # Somehow the return value is negative
-            return round(abs(data[0]), 5) - 0.00001 # Handle decimal error
+            return round(abs(data[0]), 5) - 0.00001  # Handle decimal error
 
         return -1.0
 

@@ -1,9 +1,7 @@
+import datetime as dt
+
 from .base import Configuration
-from typing import Optional, List, Dict, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    import datetime as dt
-
+from typing import Optional, List, Dict
 
 # Please use this file as template and fill in the following configurations and rename the file to myconfig.py
 

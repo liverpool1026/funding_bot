@@ -1,4 +1,4 @@
-## Welcome to Funding Bot
+# Welcome to Funding Bot
 
 A funding bot written in python3.6 that can automatically lend out money and earn interest on Bitfinex.
 
@@ -13,6 +13,26 @@ Current supported currencies
 - USD
 - BTC
 - ETH
+
+# How to run
+
+## Pull pre-built docker container
+
+Pull Docker Container
+```
+docker pull hawkvine/funding-bot:version (i.e. docker pull hawkvine/funding-bot:2.5.0)
+```
+
+Obtain a copy of the config and modify it (Template: funding_bot/funding_bot/myconfig_template.py)
+
+Run Docker Container
+```
+docker run -v absolute_path_to_config_file:/funding_bot/configs/myconfig.py hawkvine/funding-bot:version
+```
+
+Check out https://hub.docker.com/r/hawkvine/funding-bot/tags?page=1&ordering=last_updated for available versions. (Latest Stable: 2.5.0)
+
+## Run the code directly
 
 Install
 ```
@@ -30,6 +50,30 @@ vim funding_bot/funding_bot/myconfig.py
 Run
 ```
 funding_bot run
+```
+
+## Build Custom Docker Container Locally
+
+Pull Source Code
+```
+git clone https://github.com/liverpool1026/funding_bot
+cd funding_bot
+```
+
+Config Setting
+```
+cp funding_bot/funding_bot/myconfig_template.py funding_bot/funding_bot/myconfig.py
+vim funding_bot/funding_bot/myconfig.py
+```
+
+Build Container
+```
+docker build --tag funding_bot 
+```
+
+Run Container
+```
+docker run funding_bot
 ```
 
 ### Support or Contact

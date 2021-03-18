@@ -68,7 +68,7 @@ vim funding_bot/funding_bot/myconfig.py
 
 Build Container
 ```
-docker build --tag funding_bot 
+docker build --tag funding_bot .
 ```
 
 Run Container

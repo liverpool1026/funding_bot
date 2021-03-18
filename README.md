@@ -76,5 +76,16 @@ Run Container
 docker run funding_bot
 ```
 
+# Integration
+
+Currently supports
+- Telegram Notification
+- Sentry Error Integration
+- AWS DynamoDB
+
+Example DynamoDB Structure
+![image](https://user-images.githubusercontent.com/29122286/111640383-e28ed880-8847-11eb-8e2c-cc30eb12c02f.png)
+
+
 ### Support or Contact
 

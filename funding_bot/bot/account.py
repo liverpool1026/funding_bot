@@ -81,7 +81,9 @@ class Account(object):
                 currency, configuration.get_dynamodb_table_name(), logger
             )
             or FundingData(
-                date=configuration.get_funding_start_date() if configuration.get_funding_start_date() else dt.datetime.now().date(),
+                date=configuration.get_funding_start_date()
+                if configuration.get_funding_start_date() is not None
+                else dt.datetime.now().date(),
                 initial_balance=configuration.get_initial_balance()[currency],
             )
             for currency in configuration.get_funding_currencies()

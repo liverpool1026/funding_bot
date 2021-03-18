@@ -47,8 +47,14 @@ def runner(logger: logging.Logger):
 
     funding_currencies = AccountConfiguration.get_funding_currencies()
 
+    initial_balance_message = f"Initial Balance: \n"
     for currency in funding_currencies:
         rate_trackers[currency] = Tracker(currency=currency, logger=logger)
+        initial_balance_message += (
+            f"{currency}: {funding_data_tracker.get_initial_balance(currency)}\n"
+        )
+
+    bot.send_telegram_notification(telegram_api_key, initial_balance_message)
 
     for i in range(20):
         # Need initial value
